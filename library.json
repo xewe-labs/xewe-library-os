@@ -1,0 +1,55 @@
+{
+  "name": "XeWeOS",
+  "version": "0.1.0",
+  "description": "Modular firmware base for ESP32: assemble plug-and-play modules with setup flows, persistence, and a CLI.",
+  "keywords": [
+    "other"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xewe-labs/xewe-library-os.git"
+  },
+  "authors": [
+    {
+      "name": "Maxim Dokukin",
+      "maintainer": true
+    }
+  ],
+  "license": "GPL-3.0-only",
+  "homepage": "https://github.com/xewe-labs/xewe-library-os",
+  "frameworks": "arduino",
+  "platforms": [
+    "espressif32"
+  ],
+  "headers": [
+    "XeWeOS.h"
+  ],
+  "dependencies": [
+    {
+      "owner": "xewe-labs",
+      "name": "XeWeUtils",
+      "version": ">=0.1.0"
+    },
+    {
+      "owner": "xewe-labs",
+      "name": "XeWeSerial",
+      "version": ">=0.1.0"
+    },
+    {
+      "owner": "xewe-labs",
+      "name": "XeWeNvs",
+      "version": ">=0.1.0"
+    },
+    {
+      "owner": "xewe-labs",
+      "name": "XeWeCommandExecutor",
+      "version": ">=0.1.0"
+    }
+  ],
+  "export": {
+    "exclude": [
+      ".github",
+      "extras/test"
+    ]
+  }
+}

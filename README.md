@@ -1,0 +1,114 @@
+# XeWeOS
+
+A modular firmware base for ESP32 (C3, C6, S3). XeWeOS holds only the core; every
+other feature is a separate library you plug in by declaring it in your sketch.
+
+## Core
+
+`xewe::os::ModuleController` owns four services, available to every module:
+
+| Member | Type | Library |
+|---|---|---|
+| `os.serial` | `xewe::SerialPort` | XeWeSerial |
+| `os.nvs` | `xewe::Nvs` | XeWeNvs |
+| `os.cmd` | `xewe::CommandExecutor` | XeWeCommandExecutor |
+| `os.system` | `xewe::os::System` (a Module: `$system ...`) | this library |
+
+## Assembling firmware
+
+Assembly happens in the `.ino`. Modules register themselves when constructed and
+begin in declaration order, so declare the controller first, then dependencies
+before the modules that use them.
+
+```cpp
+#include <XeWeOS.h>
+#include "BlinkModule.h"
+
+xewe::os::ModuleController os({
+    .project_name    = "blink-device",
+    .version         = "0.1.0",
+    .build_timestamp = __DATE__ " " __TIME__,
+});
+
+BlinkModule blink(os, {.pin = 8});
+
+void setup() { os.begin(); }
+void loop()  { os.loop();  }
+```
+
+`ModuleControllerConfig` also takes `url`, `serial` (a `xewe::SerialPortConfig`) and
+`print_banner`.
+
+## Writing a module
+
+Derive from `xewe::os::Module`, take settings in the constructor, and override only
+what you need. See `examples/CustomModule/BlinkModule.h` for a complete one.
+
+```cpp
+class BlinkModule : public xewe::os::Module {
+public:
+    BlinkModule(xewe::os::ModuleController& os, BlinkConfig config = {})
+        : Module(os, "blink", "Blink", "Blinks an LED",
+                 /* requires_init_setup */ true,
+                 /* can_be_disabled     */ true,
+                 /* has_cli_commands    */ true)
+        , config(config) {
+        register_command({"period", "Set period", "$blink period 250", 1,
+                          [this](std::span<const std::string> args) { /* ... */ }});
+    }
+    void begin_routines_common() override { /* ... */ }
+    void loop() override { /* ... */ }
+};
+```
+
+### Lifecycle
+
+`os.begin()` calls `begin()` on each module in order:
+
+1. On first boot, a module with `can_be_disabled` asks whether to enable it.
+2. If any requirement (`add_requirement(other)`) is disabled, the module is disabled too.
+3. `begin_routines_required()` runs on every boot.
+4. `begin_routines_init()` runs until it completes once (when `requires_init_setup`),
+   otherwise `begin_routines_regular()` runs.
+5. `begin_routines_common()` runs last.
+
+A disabled module skips steps 3-5 but stays registered, and other modules may still
+call it, so public functions of a module that can be disabled should start with
+`if (is_disabled()) return;`.
+
+Each module stores its state in the NVS namespace named after its `id`
+(`is_enabled`, `not_first_boot`, `init_complete`, plus its own keys), so `$<id> reset`
+wipes exactly that module.
+
+### Commands
+
+With `has_cli_commands`, a module gets a `$<id>` command group with `status` and
+`reset` (plus `enable` / `disable` when it can be disabled). Add more with
+`register_command`.
+
+## Dependencies
+
+XeWeUtils, XeWeSerial, XeWeNvs, XeWeCommandExecutor (and ArduinoJson through XeWeNvs).
+For local development, clone the library repos next to this one:
+
+```bash
+cd ..   # the folder holding all xewe-labs repos
+arduino-cli compile --fqbn esp32:esp32:esp32c3:CDCOnBoot=cdc \
+  --library xewe-library-utils --library xewe-library-serial --library xewe-library-nvs \
+  --library xewe-library-command-executor --library xewe-library-os \
+  xewe-library-os/examples/CustomModule
+```
+
+## Changes from the monolithic xewe-os
+
+| Before | Now |
+|---|---|
+| Controller has a member for every module | Only core services; modules self-register from the sketch |
+| `begin(const ModuleConfig&)` + `static_cast` | Config passed to the module constructor; `begin_routines_*()` take no arguments |
+| `controller.serial_port`, `controller.command_executor` | `controller.serial`, `controller.cmd` |
+| `commands_storage.push_back(...)` | `register_command(...)` |
+| `command_executor.parse(line)` | `cmd.execute(line)` |
+| `Config.h` macros (`BUILD_VERSION`, ...) | `ModuleControllerConfig` |
+| Central `Debug.h` | `#ifndef DEBUG_<Class>` per library, enabled via build flags |
+| `Nvs::reset` erases flash | `Nvs::erase_all()`; `$system reset` does a factory reset |
+| Module `enable()` always restarted | Restarts only when `do_restart` is true |
