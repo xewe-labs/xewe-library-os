@@ -16,7 +16,7 @@
 #include <XeWeUtils.h>
 #include <XeWeSerial.h>
 #include <XeWeNvs.h>
-#include <XeWeCommandExecutor.h>
+#include <XeWeCli.h>
 
 
 namespace xewe::os {

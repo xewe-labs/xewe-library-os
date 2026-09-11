@@ -25,7 +25,7 @@ Module::Module(ModuleController& controller,
     , enabled(true) {
     controller.register_module(*this);
     if (has_cli_commands) {
-        controller.cmd.add_group(this->id, this->name);
+        controller.cmd_cli.add_group(this->id, this->name);
         register_generic_commands();
     }
 }
@@ -219,7 +219,7 @@ std::string_view Module::get_description() const { return description; }
 
 bool Module::register_command(Command command) {
     if (!has_cli_commands) return false;
-    return controller.cmd.add_command(id, std::move(command));
+    return controller.cmd_cli.add_command(id, std::move(command));
 }
 
 bool Module::requirements_enabled(bool verbose) const {
