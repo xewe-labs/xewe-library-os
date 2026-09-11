@@ -22,7 +22,7 @@ struct ModuleControllerConfig {
     bool                          print_banner    = true;
 };
 
-// Owns the core services (serial, nvs, cmd_cli, system) and every registered module.
+// Owns the core services (serial, nvs, xewe_cli, system) and every registered module.
 //
 // Declare the controller before any module in the sketch: modules register
 // themselves from their constructors, and globals in one file are constructed
@@ -48,7 +48,7 @@ public:
 
     xewe::SerialPort              serial;
     xewe::Nvs                     nvs;
-    xewe::CmdCli                  cmd_cli;
+    xewe::Cli                     xewe_cli;
     System                        system;
 
 private:

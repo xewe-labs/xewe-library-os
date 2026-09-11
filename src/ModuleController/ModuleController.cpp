@@ -9,7 +9,7 @@ namespace xewe::os {
 
 ModuleController::ModuleController(ModuleControllerConfig config)
     : config(std::move(config))
-    , cmd_cli(serial)
+    , xewe_cli(serial)
     , system(*this)
 {}
 
@@ -35,7 +35,7 @@ void ModuleController::begin() {
 }
 
 void ModuleController::loop() {
-    cmd_cli.loop();
+    xewe_cli.loop();
 
     for (Module* module : modules) {
         if (module->is_enabled()) {

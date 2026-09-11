@@ -42,7 +42,7 @@
     },
     {
       "owner": "xewe-labs",
-      "name": "XeWeCmdCli",
+      "name": "XeWeCli",
       "version": ">=0.1.0"
     }
   ],

@@ -1,4 +1,4 @@
-// XeWe OS: the smallest assembly. Core services only (serial, nvs, cmd_cli, system).
+// XeWe OS: the smallest assembly. Core services only (serial, nvs, xewe_cli, system).
 // Try: $help   $system status   $system info
 #include <XeWeOS.h>
 
