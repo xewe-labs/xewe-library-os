@@ -11,7 +11,7 @@ other feature is a separate library you plug in by declaring it in your sketch.
 |---|---|---|
 | `os.serial` | `xewe::SerialPort` | XeWeSerial |
 | `os.nvs` | `xewe::Nvs` | XeWeNvs |
-| `os.cmd_cli` | `xewe::CmdCli` | XeWeCli |
+| `os.cmd_cli` | `xewe::CmdCli` | XeWeCmdCli |
 | `os.system` | `xewe::os::System` (a Module: `$system ...`) | this library |
 
 ## Assembling firmware
@@ -88,14 +88,14 @@ With `has_cli_commands`, a module gets a `$<id>` command group with `status` and
 
 ## Dependencies
 
-XeWeUtils, XeWeSerial, XeWeNvs, XeWeCli (and ArduinoJson through XeWeNvs).
+XeWeUtils, XeWeSerial, XeWeNvs, XeWeCmdCli (and ArduinoJson through XeWeNvs).
 For local development, clone the library repos next to this one:
 
 ```bash
 cd ..   # the folder holding all xewe-labs repos
 arduino-cli compile --fqbn esp32:esp32:esp32c3:CDCOnBoot=cdc \
   --library xewe-library-utils --library xewe-library-serial --library xewe-library-nvs \
-  --library xewe-library-cli --library xewe-library-os \
+  --library xewe-library-cmd-cli --library xewe-library-os \
   xewe-library-os/examples/CustomModule
 ```
 
