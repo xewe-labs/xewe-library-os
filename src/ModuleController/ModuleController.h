@@ -14,7 +14,7 @@
 namespace xewe::os {
 
 struct ModuleControllerConfig {
-    std::string                   project_name    = "xewe-os";
+    std::string                   project_name    = "xewe-device";
     std::string                   version         = "0.0.0";
     std::string                   build_timestamp = {};
     std::string                   url             = "https://github.com/xewe-labs/xewe-library-os";

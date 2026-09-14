@@ -3,7 +3,7 @@
 #include <XeWeOS.h>
 
 xewe::os::ModuleController os({
-    .project_name    = "xewe-os",
+    .project_name    = "basic-device",
     .version         = "0.1.0",
     .build_timestamp = __DATE__ " " __TIME__,
 });

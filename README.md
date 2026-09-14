@@ -42,7 +42,8 @@ void loop()  { os.loop();  }
 ## Writing a module
 
 Derive from `xewe::os::Module`, take settings in the constructor, and override only
-what you need. See `examples/CustomModule/BlinkModule.h` for a complete one.
+what you need. Start from [`extras/ModuleTemplate`](extras/ModuleTemplate) (every hook,
+commented) or see `examples/CustomModule/BlinkModule.h` for a complete one.
 
 ```cpp
 class BlinkModule : public xewe::os::Module {
@@ -60,6 +61,28 @@ public:
     void loop() override { /* ... */ }
 };
 ```
+
+Rules of thumb:
+
+* **The framework knows no concrete modules.** A firmware project keeps its own modules in
+  `src/<Name>/<Name>.{h,cpp}` and assembles them in the `.ino`; reusable ones become their own
+  libraries.
+* **Dependencies are constructor references.** A module that uses another takes it by
+  reference, stores it, and calls `add_requirement(other)`:
+
+  ```cpp
+  WebInterface(xewe::os::ModuleController& os, Wifi& wifi) : Module(os, ...), wifi(wifi) {
+      add_requirement(wifi);
+  }
+  ```
+
+  Declare `wifi` before `web_interface` in the sketch.
+* **Use the core services through the controller:** `controller.serial` for output and
+  prompts, `controller.nvs` with the module `id` as namespace, `controller.xewe_cli.execute(line)`
+  to run commands (buttons, schedules, web requests), `controller.system`.
+* **`loop()` must not block;** every module shares it.
+* **Don't name objects `cli`** when constructing them with parentheses: the Arduino core defines a
+  `cli()` macro. The core uses `xewe_cli`.
 
 ### Lifecycle
 
