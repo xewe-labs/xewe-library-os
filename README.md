@@ -1,5 +1,7 @@
 # XeWeOS
 
+> Full reference: [`doc/`](doc/) · Agent rules: [`doc/AGENTS.md`](doc/AGENTS.md)
+
 A modular firmware base for ESP32 (C3, C6, S3). XeWeOS holds only the core; every
 other feature is a separate library you plug in by declaring it in your sketch.
 
