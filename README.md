@@ -45,7 +45,7 @@ void loop()  { os.loop();  }
 
 Derive from `xewe::os::Module`, take settings in the constructor, and override only
 what you need. Start from [`extras/ModuleTemplate`](extras/ModuleTemplate) (every hook,
-commented) or see `examples/CustomModule/BlinkModule.h` for a complete one.
+commented) or see `examples/02_CustomModule/BlinkModule.h` for a complete one.
 
 ```cpp
 class BlinkModule : public xewe::os::Module {
@@ -111,6 +111,11 @@ With `has_cli_commands`, a module gets a `$<id>` command group with `status` and
 `reset` (plus `enable` / `disable` when it can be disabled). Add more with
 `register_command`.
 
+## Examples
+
+`01_Basic`, `02_CustomModule` and `03_ModuleDependencies` in [`examples/`](examples/), in
+increasing order of scope; the last one shows two modules where one requires the other.
+
 ## Dependencies
 
 XeWeUtils, XeWeSerial, XeWeNvs, XeWeCli (and ArduinoJson through XeWeNvs).
@@ -121,7 +126,7 @@ cd ..   # the folder holding all xewe-labs repos
 arduino-cli compile --fqbn esp32:esp32:esp32c3:CDCOnBoot=cdc \
   --library xewe-library-utils --library xewe-library-serial --library xewe-library-nvs \
   --library xewe-library-cli --library xewe-library-os \
-  xewe-library-os/examples/CustomModule
+  xewe-library-os/examples/02_CustomModule
 ```
 
 ## Changes from the monolithic xewe-os

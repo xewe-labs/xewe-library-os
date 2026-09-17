@@ -46,13 +46,18 @@ repository, not just this folder.
 Also depends on [XeWeUtils](https://github.com/xewe-labs/xewe-library-utils), and on ArduinoJson
 through XeWeNvs.
 
-## Starting points
+## Examples
 
-* [`examples/Basic`](../examples/Basic) — the minimum sketch.
-* [`examples/CustomModule`](../examples/CustomModule) — a complete module with config, a CLI
-  command, init setup and a non-blocking loop.
-* [`extras/ModuleTemplate`](../extras/ModuleTemplate) — a copy-paste skeleton with every hook
-  commented.
+Three sketches, in increasing order of scope:
+
+| | | |
+|---|---|---|
+| low | [`01_Basic`](../examples/01_Basic) | the minimum sketch: a controller, `begin()`, `loop()` |
+| mid | [`02_CustomModule`](../examples/02_CustomModule) | one module with config, a CLI command, init setup and a non-blocking loop |
+| high | [`03_ModuleDependencies`](../examples/03_ModuleDependencies) | two modules where one requires the other: the cascade, a `status()` override, and a `get_module` lookup |
+
+Also [`extras/ModuleTemplate`](../extras/ModuleTemplate) — a copy-paste skeleton with every hook
+commented.
 
 ## Local development
 
@@ -63,5 +68,5 @@ cd ..   # the folder holding all xewe-labs repos
 arduino-cli compile --fqbn esp32:esp32:esp32c3:CDCOnBoot=cdc \
   --library xewe-library-utils --library xewe-library-serial --library xewe-library-nvs \
   --library xewe-library-cli --library xewe-library-os \
-  xewe-library-os/examples/CustomModule
+  xewe-library-os/examples/02_CustomModule
 ```

@@ -5,7 +5,7 @@
 A module registers itself with the controller on construction, stores its own settings, and
 overrides only the hooks it needs. Start from
 [`extras/ModuleTemplate`](../extras/ModuleTemplate) (every hook, commented) or
-[`examples/CustomModule/BlinkModule.h`](../examples/CustomModule/BlinkModule.h) (a complete one).
+[`examples/02_CustomModule/BlinkModule.h`](../examples/02_CustomModule/BlinkModule.h) (a complete one).
 
 ## Constructor
 
