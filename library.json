@@ -1,6 +1,6 @@
 {
   "name": "XeWeOS",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Modular firmware base for ESP32: assemble plug-and-play modules with setup flows, persistence, and a CLI.",
   "keywords": [
     "other"
@@ -28,22 +28,22 @@
     {
       "owner": "xewe-labs",
       "name": "XeWeUtils",
-      "version": ">=0.1.0"
+      "version": ">=1.0.0"
     },
     {
       "owner": "xewe-labs",
       "name": "XeWeSerial",
-      "version": ">=0.1.0"
+      "version": ">=1.0.0"
     },
     {
       "owner": "xewe-labs",
       "name": "XeWeNvs",
-      "version": ">=0.1.0"
+      "version": ">=1.0.0"
     },
     {
       "owner": "xewe-labs",
       "name": "XeWeCli",
-      "version": ">=0.1.0"
+      "version": ">=1.0.0"
     }
   ],
   "export": {
