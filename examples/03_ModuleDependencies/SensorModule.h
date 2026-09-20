@@ -17,7 +17,7 @@ public:
                  /* has_cli_commands    */ true)
         , config(config) {
         register_command({"limit", "Set the alert limit", "$sensor limit 600", 1,
-            [this](std::span<const std::string> args) {
+            [this](xewe::span<const std::string> args) {
                 if (auto v = xewe::validate<uint16_t>(args[0], 0, 4095)) {
                     set_limit(*v);
                 } else {
@@ -26,7 +26,7 @@ public:
             }});
 
         register_command({"read", "Print the current value", "$sensor read", 0,
-            [this](std::span<const std::string>) {
+            [this](xewe::span<const std::string>) {
                 controller.serial.printf("value %u (limit %u)", read_value(), limit);
             }});
     }

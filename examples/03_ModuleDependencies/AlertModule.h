@@ -20,7 +20,7 @@ public:
         add_requirement(sensor);
 
         register_command({"test", "Blink once", "$alert test", 0,
-            [this](std::span<const std::string>) { blink(); }});
+            [this](xewe::span<const std::string>) { blink(); }});
     }
 
     void begin_routines_common() override {

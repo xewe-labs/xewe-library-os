@@ -248,7 +248,7 @@ void Module::register_generic_commands() {
         "Get module status",
         std::string("$") + id + " status",
         0,
-        [this](std::span<const std::string>) {
+        [this](xewe::span<const std::string>) {
             status(true);
         }
     });
@@ -258,7 +258,7 @@ void Module::register_generic_commands() {
         "Reset the module",
         std::string("$") + id + " reset",
         0,
-        [this](std::span<const std::string>) {
+        [this](xewe::span<const std::string>) {
             reset(true, true);
         }
     });
@@ -269,7 +269,7 @@ void Module::register_generic_commands() {
             "Enable this module",
             std::string("$") + id + " enable",
             0,
-            [this](std::span<const std::string>) {
+            [this](xewe::span<const std::string>) {
                 enable(true, true);
             }
         });
@@ -279,7 +279,7 @@ void Module::register_generic_commands() {
             "Disable this module",
             std::string("$") + id + " disable",
             0,
-            [this](std::span<const std::string>) {
+            [this](xewe::span<const std::string>) {
                 disable(true, true);
             }
         });

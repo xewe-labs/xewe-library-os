@@ -24,7 +24,7 @@ System::System(ModuleController& controller)
         "Restart the ESP",
         std::string("$") + id + " restart",
         0,
-        [this](std::span<const std::string>) {
+        [this](xewe::span<const std::string>) {
             restart(1000);
         }
     });
@@ -34,7 +34,7 @@ System::System(ModuleController& controller)
         "Restart the ESP",
         std::string("$") + id + " reboot",
         0,
-        [this](std::span<const std::string>) {
+        [this](xewe::span<const std::string>) {
             restart(1000);
         }
     });
@@ -44,7 +44,7 @@ System::System(ModuleController& controller)
         "Chip and build info",
         std::string("$") + id + " info",
         0,
-        [this](std::span<const std::string>) {
+        [this](xewe::span<const std::string>) {
             esp_chip_info_t ci;
             esp_chip_info(&ci);
 
@@ -98,7 +98,7 @@ System::System(ModuleController& controller)
         "Set device name",
         std::string("$") + id + " set_device_name \"Kitchen Lights\"",
         1,
-        [this](std::span<const std::string> args) {
+        [this](xewe::span<const std::string> args) {
             if (args.empty() || args[0].empty()) {
                 this->controller.serial.print(
                     ("Usage: $" + id + " set_device_name \"<name>\"").c_str(),
@@ -131,7 +131,7 @@ System::System(ModuleController& controller)
         "Print MAC addresses",
         std::string("$") + id + " mac",
         0,
-        [this](std::span<const std::string>) {
+        [this](xewe::span<const std::string>) {
             struct Item {
                 const char*    name;
                 esp_mac_type_t type;
@@ -173,7 +173,7 @@ System::System(ModuleController& controller)
         "Device UID from eFuse base MAC (and SHA256-64)",
         std::string("$") + id + " uid",
         0,
-        [this](std::span<const std::string>) {
+        [this](xewe::span<const std::string>) {
             uint8_t mac[6];
             esp_efuse_mac_get_default(mac);
 

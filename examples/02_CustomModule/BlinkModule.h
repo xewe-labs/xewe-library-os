@@ -25,7 +25,7 @@ public:
             "Set blink period in ms (50-10000)",
             "$blink period 250",
             1,
-            [this](std::span<const std::string> args) {
+            [this](xewe::span<const std::string> args) {
                 auto value = xewe::validate<uint32_t>(args[0], 50, 10000);
                 if (!value) {
                     this->controller.serial.print("Error: period must be 50-10000");

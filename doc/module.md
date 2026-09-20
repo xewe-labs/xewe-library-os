@@ -41,7 +41,7 @@ public:
                  /* has_cli_commands    */ true)
         , config(config) {
         register_command({"period", "Set period", "$blink period 250", 1,
-                          [this](std::span<const std::string> args) { /* ... */ }});
+                          [this](xewe::span<const std::string> args) { /* ... */ }});
     }
 };
 ```

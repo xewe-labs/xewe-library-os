@@ -20,7 +20,7 @@ ModuleTemplate::ModuleTemplate(xewe::os::ModuleController& controller,
         "Run the module's action once",
         "$template do",
         0,
-        [this](std::span<const std::string>) { do_something(); }
+        [this](xewe::span<const std::string>) { do_something(); }
     });
 }
 
