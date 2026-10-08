@@ -1,6 +1,6 @@
 {
   "name": "XeWeCore",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Modular firmware core for ESP32: serial console, command line, typed NVS storage, helpers and a module framework.",
   "keywords": [
     "other"

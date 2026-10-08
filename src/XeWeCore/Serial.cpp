@@ -27,15 +27,29 @@ void SerialPort::loop() {
         if (echo) Serial.write(static_cast<uint8_t>(c));
 
         if (c == '\r') continue;
-        if (c == '\n' || input_buffer_pos >= INPUT_BUFFER_SIZE - 1) {
-            input_buffer[input_buffer_pos] = '\0';
-            line_length                    = input_buffer_pos;
-            input_buffer_pos               = 0;
-            line_ready                     = true;
-        } else {
-            input_buffer[input_buffer_pos++] = c;
+        if (c == '\n') {
+            push_line();
+            continue;
         }
+        // line full (254 chars): terminate it and carry this character into the next line
+        if (input_buffer_pos >= INPUT_BUFFER_SIZE - 1) push_line();
+        input_buffer[input_buffer_pos++] = c;
     }
+}
+
+void SerialPort::push_line() {
+    input_buffer[input_buffer_pos] = '\0';
+    if (queue_count >= INPUT_QUEUE_LINES) {
+        // queue full: drop the newest line, keep the ones already waiting
+        input_buffer_pos = 0;
+        this->println_raw("! Input overflow: line dropped");
+        return;
+    }
+    const std::size_t tail = (queue_head + queue_count) % INPUT_QUEUE_LINES;
+    std::memcpy(line_queue[tail], input_buffer, input_buffer_pos + 1);
+    line_lengths[tail] = static_cast<uint8_t>(input_buffer_pos);
+    ++queue_count;
+    input_buffer_pos = 0;
 }
 
 // printers
@@ -652,15 +666,13 @@ uint8_t SerialPort::get_menu_choice(std::string_view prompt,
     return get_uint8(input_prompt, actual_min, actual_max, retry_count, timeout_ms, default_value, success_sink);
 }
 
-bool SerialPort::has_line() const { return line_ready; }
+bool SerialPort::has_line() const { return queue_count > 0; }
 
 std::string SerialPort::read_line() {
-    if (!line_ready) return {};
-    std::string out(input_buffer, line_length);
-    line_ready       = false;
-    line_length      = 0;
-    input_buffer_pos = 0;
-    //     input_buffer[0]  = '\0';
+    if (queue_count == 0) return {};
+    std::string out(line_queue[queue_head], line_lengths[queue_head]);
+    queue_head = static_cast<uint8_t>((queue_head + 1) % INPUT_QUEUE_LINES);
+    --queue_count;
     return out;
 }
 
@@ -670,9 +682,8 @@ void SerialPort::clear_input() {
         yield();
     }
     input_buffer_pos = 0;
-    line_length      = 0;
-    line_ready       = false;
-    //     input_buffer[0]  = '\0';
+    queue_head       = 0;
+    queue_count      = 0;
 }
 
 void SerialPort::print_raw(std::string_view message) {

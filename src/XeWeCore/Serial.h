@@ -162,11 +162,18 @@ private:
                                                                   const T          default_value,
                                                                   std::optional<std::reference_wrapper<bool>> success_sink);
 
-    std::size_t                  input_buffer_pos                = 0;
-    std::size_t                  line_length                     = 0;
-    bool                         line_ready                      = false;
-    static constexpr std::size_t INPUT_BUFFER_SIZE               = 255;
+    void                         push_line                       ();
+
+    // in-progress line plus a FIFO of completed lines (ring buffer)
+    static constexpr std::size_t INPUT_BUFFER_SIZE               = 255;  // per line, 254 usable
+    static constexpr std::size_t INPUT_QUEUE_LINES               = 4;    // completed lines held
+    static_assert(INPUT_BUFFER_SIZE <= 256 && INPUT_QUEUE_LINES <= 255, "lengths and indices are uint8_t");
     char                         input_buffer[INPUT_BUFFER_SIZE] = {};
+    std::size_t                  input_buffer_pos                = 0;
+    char                         line_queue[INPUT_QUEUE_LINES][INPUT_BUFFER_SIZE] = {};
+    uint8_t                      line_lengths[INPUT_QUEUE_LINES] = {};
+    uint8_t                      queue_head                      = 0;    // oldest line
+    uint8_t                      queue_count                     = 0;
     bool                         echo                            = true;
 };
 

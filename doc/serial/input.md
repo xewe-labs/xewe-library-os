@@ -18,12 +18,13 @@ void loop() {
 void loop();
 ```
 
-Drains everything currently in the RX buffer and assembles it into a line. Call it every iteration
+Drains everything currently in the RX buffer and assembles it into lines. Call it every iteration
 of the sketch's `loop()`. It never blocks: it reads only what is already available, calling
 `yield()` between characters.
 
 Per character: `'\r'` is discarded, `'\n'` ends the line, anything else is appended. When `echo` is
-on, the character is written back first.
+on, the character is written back first. Each completed line is pushed onto a FIFO of up to four
+lines (`INPUT_QUEUE_LINES`), so several lines arriving in one pass are all kept, in order.
 
 ## has_line
 
@@ -31,7 +32,7 @@ on, the character is written back first.
 bool has_line() const;
 ```
 
-Whether a complete line is waiting. A plain flag read — it does not poll the port, so `loop()` has
+Whether at least one complete line is waiting in the queue. A plain read — it does not poll the port, so `loop()` has
 to have run.
 
 ## read_line
@@ -40,8 +41,8 @@ to have run.
 std::string read_line();
 ```
 
-Returns the pending line and clears it. Returns `{}` when no line is ready. The returned string
-does not include the terminating newline.
+Removes and returns the oldest queued line. Returns `{}` when no line is ready. The returned
+string does not include the terminating newline. A partially typed line is not affected.
 
 ## clear_input
 
@@ -49,17 +50,19 @@ does not include the terminating newline.
 void clear_input();
 ```
 
-Drains the hardware RX buffer and discards any partially typed line. Every `get_*` prompt calls
+Drains the hardware RX buffer and discards every queued line and any partially typed line. Every `get_*` prompt calls
 this first, so a stray keystroke typed before the question does not answer it.
 
 ## Notes
 
-* **The line buffer is 255 bytes** (`INPUT_BUFFER_SIZE`), 254 usable. A line reaching that length
-  is terminated as if a newline arrived: a longer line is **silently split into several lines**,
-  with no error and no marker. Anything accepting long input — a Wi-Fi password, a URL, a JSON
-  blob — must account for that.
-* **Only one line is buffered.** If two lines arrive in one `loop()` and you do not call
-  `read_line()` in between, the second overwrites the first. There is no queue.
+* **A line holds 255 bytes** (`INPUT_BUFFER_SIZE`), 254 usable. When a 255th character arrives,
+  the first 254 are queued as a complete line and that character starts the next line: a longer
+  line is **silently split into several lines**, with no error and no marker. Anything accepting
+  long input — a Wi-Fi password, a URL, a JSON blob — must account for that.
+* **Up to four completed lines are queued** (`INPUT_QUEUE_LINES`). If a line completes while
+  four are already waiting, the **newest** line is dropped, the queued ones are kept, and
+  `! Input overflow: line dropped` is printed once per dropped line. The queue costs about 1 KB of
+  static RAM per `SerialPort`.
 * **There is no line editing.** A backspace is stored as a literal `\b` character; arrow keys
   arrive as escape sequences. The echo is a raw echo, not a readline.
-* `read_line()` returns a copy; the internal buffer is reused immediately.
+* `read_line()` returns a copy; the queue slot is reused immediately.
