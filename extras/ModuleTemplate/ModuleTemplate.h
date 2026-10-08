@@ -6,7 +6,7 @@
 // rename ModuleTemplate -> <Name> in both files, and delete the hooks you don't need.
 #pragma once
 
-#include <XeWeOS.h>
+#include <XeWeCore.h>
 
 
 // Settings passed from the sketch: ModuleTemplate module(os, {.interval_ms = 500});
@@ -14,11 +14,12 @@ struct ModuleTemplateConfig {
     uint32_t interval_ms = 1000;
 };
 
-class ModuleTemplate : public xewe::os::Module {
+class ModuleTemplate : public xewe::Module {
 public:
-    // Take other modules this one uses by reference and call add_requirement() for each;
-    // they must be declared before this module in the sketch.
-    explicit    ModuleTemplate          (xewe::os::ModuleController& controller,
+    // The Os parameter is named `host` so it never hides the member `os`: bodies and [this]
+    // lambdas use `os`. Take other modules this one uses by reference after `host` and call
+    // add_requirement() for each; they must be declared before this module in the sketch.
+    explicit    ModuleTemplate          (xewe::Os&                   host,
                                          ModuleTemplateConfig        config = {});
 
     void        begin_routines_required ()                               override;   // every boot

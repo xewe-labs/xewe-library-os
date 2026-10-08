@@ -1,13 +1,13 @@
 {
-  "name": "XeWeOS",
-  "version": "1.0.0",
-  "description": "Modular firmware base for ESP32: assemble plug-and-play modules with setup flows, persistence, and a CLI.",
+  "name": "XeWeCore",
+  "version": "2.0.0",
+  "description": "Modular firmware core for ESP32: serial console, command line, typed NVS storage, helpers and a module framework.",
   "keywords": [
     "other"
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/xewe-labs/xewe-library-os.git"
+    "url": "https://github.com/xewe-labs/xewe-os-core.git"
   },
   "authors": [
     {
@@ -16,34 +16,19 @@
     }
   ],
   "license": "GPL-3.0-only",
-  "homepage": "https://github.com/xewe-labs/xewe-library-os",
+  "homepage": "https://github.com/xewe-labs/xewe-os-core",
   "frameworks": "arduino",
   "platforms": [
     "espressif32"
   ],
   "headers": [
-    "XeWeOS.h"
+    "XeWeCore.h"
   ],
   "dependencies": [
     {
-      "owner": "xewe-labs",
-      "name": "XeWeUtils",
-      "version": ">=1.0.0"
-    },
-    {
-      "owner": "xewe-labs",
-      "name": "XeWeSerial",
-      "version": ">=1.0.0"
-    },
-    {
-      "owner": "xewe-labs",
-      "name": "XeWeNvs",
-      "version": ">=1.0.0"
-    },
-    {
-      "owner": "xewe-labs",
-      "name": "XeWeCli",
-      "version": ">=1.0.0"
+      "owner": "bblanchon",
+      "name": "ArduinoJson",
+      "version": ">=7.0.0"
     }
   ],
   "export": {

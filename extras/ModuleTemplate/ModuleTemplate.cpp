@@ -5,9 +5,9 @@
 #include "ModuleTemplate.h"
 
 
-ModuleTemplate::ModuleTemplate(xewe::os::ModuleController& controller,
+ModuleTemplate::ModuleTemplate(xewe::Os&                   host,
                                ModuleTemplateConfig        config)
-    : Module(controller,
+    : Module(host,
           /* id                  */ "template",          // CLI group ($template) and NVS namespace; <= 15 chars
           /* name                */ "Module Template",
           /* description         */ "What this module does, shown when asking to enable it",
@@ -27,11 +27,11 @@ ModuleTemplate::ModuleTemplate(xewe::os::ModuleController& controller,
 void ModuleTemplate::begin_routines_required() {}
 
 void ModuleTemplate::begin_routines_init() {
-    // one-time setup, e.g. prompt with controller.serial.get_*() and store with controller.nvs.write()
+    // one-time setup, e.g. prompt with os.serial.get_*() and store with os.nvs.write()
 }
 
 void ModuleTemplate::begin_routines_regular() {
-    // load settings saved by begin_routines_init(), e.g. controller.nvs.read<uint32_t>(id, "key", default)
+    // load settings saved by begin_routines_init(), e.g. os.nvs.read<uint32_t>(id, "key", default)
 }
 
 void ModuleTemplate::begin_routines_common() {}
@@ -50,11 +50,11 @@ void ModuleTemplate::reset(const bool verbose,
 
 std::string ModuleTemplate::status(const bool verbose) const {
     std::string s = Module::status(false);
-    if (verbose) controller.serial.print(s);
+    if (verbose) os.serial.print(s);
     return s;
 }
 
 void ModuleTemplate::do_something() {
     if (is_disabled(true)) return;          // other modules may call in while this one is disabled
-    controller.serial.print("ModuleTemplate: did something");
+    os.serial.print("ModuleTemplate: did something");
 }
