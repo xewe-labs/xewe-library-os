@@ -3,7 +3,7 @@
 // xewe-os-core/src/XeWeCore/Testing.cpp
 //
 // The `$test` CLI group (see Testing.h). Everything below is compiled only with XEWE_TESTING.
-// Output is one `key=value` record per line so extras/hwtest can parse it; every command
+// Output is one `key=value` record per line so tests/board can parse it; every command
 // validates its arguments and answers `error=<reason>` instead of crashing on garbage.
 // NVS writes and deletes are restricted to namespaces starting with "xt" so a test can never
 // touch provisioning or module data.

@@ -35,7 +35,7 @@ Modules derive from `xewe::Module`; start from [`examples/02_MyModule`](examples
 
 * **Input queue:** serial input keeps up to four completed lines, and a line over 254 characters is dropped whole.
 * **Bounded confirmations:** `$<module> disable` and `$system reset` ask at most twice, 15 s each, and cancel unless the answer is yes.
-* **Test hooks:** building with `XEWE_TESTING` adds a `$test` command group for the hardware tests and costs nothing otherwise.
+* **Test hooks:** building with `XEWE_TESTING` adds a `$test` command group for the board tests (`tests/board`) and costs nothing otherwise.
 
 ## Examples
 
