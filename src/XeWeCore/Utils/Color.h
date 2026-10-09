@@ -1,6 +1,13 @@
 // SPDX-FileCopyrightText: 2026 Maxim Dokukin (maxdokukin.com)
 // SPDX-License-Identifier: GPL-3.0-only
 // xewe-os-core/src/XeWeCore/Utils/Color.h
+//
+// Host-includable: the standard library only, no <Arduino.h> (tests/unit/run.sh compiles it
+// without the Arduino shim). Keep it that way so pure effect code can include it.
+//
+// hsv_to_rgb is pinned bit for bit by tests/unit (test_utils.cpp, color_hsv_to_rgb_pinned).
+// xewe-os-modules led/src/Led/fx/Math.h hsv_spectrum is a copy of it: change neither until that
+// copy is deleted in favour of this header.
 #pragma once
 
 #include <array>

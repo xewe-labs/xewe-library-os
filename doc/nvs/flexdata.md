@@ -96,6 +96,43 @@ got integer`.
 the console. Unset, rejections are silent but still happen. A rejection inside a nested struct is
 reported but does not make the outer call return `false`.
 
+### Field presence
+
+```cpp
+uint32_t present() const;
+bool     has    (std::string_view field) const;
+```
+
+`from_json_object` (and so `update` and `from_json`) records which fields it assigned, so a loader
+can tell a field that was **missing** from one that holds its **default**:
+
+```cpp
+Settings s;
+s.update(json);
+if (!s.has("schema")) { /* no schema key: not "version 1" */ }
+```
+
+| After loading | `has("schema")` | `schema` |
+|---|---|---|
+| `{"name":"x"}` (missing) | `false` | default, `1` |
+| `{"schema":null}` (null) | `false` | default |
+| `{"schema":"2"}` (wrong type, rejected) | `false` | unchanged |
+| `{"schema":1}` (present, equal to the default) | `true` | `1` |
+| `{"schema":3}` (present) | `true` | `3` |
+
+* `present()` is the bitmask: bit *i* is the *i*-th entry of `fields()`. `has` of an unknown name
+  is `false`.
+* Each JSON load **replaces** the mask: after two `update` calls it describes the second one only.
+* `set_field`, `from_blob` and `read_flex` do not change it. A blob always holds every field, so
+  presence is a JSON question.
+* Nested structs (and the elements of a `std::vector` of structs) track their own presence:
+  `s.inner.has("a")`.
+* **At most 32 fields:** `present()` and `has()` do not compile (`static_assert`) on a struct with
+  more; such a struct still loads JSON as before.
+* **Cost:** one `uint32_t` in every `FlexData` struct (4 bytes per instance, including each
+  element of a vector of structs). It is not stored in the blob or the JSON, so stored data is
+  unaffected.
+
 ## Field access by name
 
 ```cpp

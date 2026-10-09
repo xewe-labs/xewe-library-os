@@ -2,6 +2,10 @@
 
 `src/XeWeCore/Utils/Color.h` — HSV ⇄ RGB conversion for 8-bit channels.
 
+**Host-includable:** the header uses the standard library only (no `<Arduino.h>`), so pure code
+such as effect math can include it and build in host tests. `tests/unit/run.sh` compiles it
+without the Arduino shim to keep it that way.
+
 **All six channels are `0-255`,** including hue and saturation. Hue is *not* 0-360 and saturation
 and value are *not* 0-100 — this is the most common mistake with these two functions.
 
@@ -34,3 +38,8 @@ inline std::array<uint8_t, 3> rgb_to_hsv(const std::array<uint8_t, 3>& rgb);
   triplet — expect drift of a unit or so, most visibly at hue boundaries.
 * No clamping is needed or performed: `uint8_t` inputs are already in range.
 * Both are `inline` and header-only; there is nothing to link.
+* **`hsv_to_rgb` is pinned bit for bit** by `tests/unit` (`color_hsv_to_rgb_pinned`: spot values
+  and a checksum over a 256 × 256 × 16 grid). The led module's `hsv_spectrum`
+  (`xewe-os-modules` `led/src/Led/fx/Math.h`) is a copy of it and must stay identical until it is
+  deleted in favour of this header; do not change the arithmetic (operation order included: an
+  FMA-contracted build already gives different bytes).

@@ -91,6 +91,10 @@ y
 The confirmed value is written to `system/device_name`. An empty name is accepted if the user
 confirms it.
 
+Built with `XEWE_DEVICE_NAME`, there is no prompt: the build-time name is written when
+`system/device_name` is empty and `Device name: <name>` is printed. See
+[Build-time device name](os.md#build-time-device-name).
+
 ## status
 
 ```cpp

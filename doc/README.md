@@ -40,10 +40,11 @@ headers under `src/XeWeCore/` can be included after it.
 
 | Page | Covers |
 |---|---|
-| [utils/string.md](utils/string.md) | `xewe::str`: case, trimming, parsing, wrapping, formatting, box lines |
+| [utils/string.md](utils/string.md) | `xewe::str`: case, hex colours, trimming, parsing, wrapping, formatting, box lines |
 | [utils/validator.md](utils/validator.md) | `xewe::validate<T>` |
 | [utils/async-timer.md](utils/async-timer.md) | `xewe::AsyncTimer<T>` |
 | [utils/color.md](utils/color.md) | `xewe::color` HSV/RGB |
+| [utils/pins.md](utils/pins.md) | `xewe::pins`: GPIO ownership registry, strapping pins |
 | [utils/span.md](utils/span.md) | `xewe::span` |
 | [utils/lock-guard.md](utils/lock-guard.md) | `xewe::LockGuard` |
 | [utils/debug.md](utils/debug.md) | `DBG_*` macros and `DEBUG_<Class>` flags |

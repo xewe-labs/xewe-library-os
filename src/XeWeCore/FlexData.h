@@ -200,13 +200,41 @@ struct FlexData {
     void                     to_json_object(JsonObject o) const {
         visit(self(), [&](const char* n, const auto& v) { o[n] = v; });
     }
-    // false if any present field had the wrong JSON type (that field is left unchanged)
+    // false if any present field had the wrong JSON type (that field is left unchanged).
+    // Records which fields it assigned: see present() / has().
     bool from_json_object(JsonVariantConst v) {
-        bool ok = true;
+        bool     ok   = true;
+        uint32_t mask = 0;
+        uint32_t i    = 0;
         visit(self(), [&](const char* n, auto& ref) {
-            if (!v[n].isNull()) ok &= assign(n, ref, v[n]);
+            JsonVariantConst x = v[n];
+            if (!x.isNull()) {
+                if (assign(n, ref, x)) mask |= (i < 32 ? uint32_t{1} << i : 0);
+                else ok = false;
+            }
+            ++i;
         });
+        present_mask = mask;
         return ok;
+    }
+
+    // ---- field presence (the last from_json_object / update / from_json) ----
+    // bit i set = the i-th entry of fields() was in the JSON, non-null and accepted. Tells a
+    // missing field from one that holds its default. Cleared by the next JSON load; set_field and
+    // from_blob do not touch it. At most 32 fields (static_assert).
+    uint32_t present() const {
+        static_assert(field_count() <= 32, "FlexData presence tracks at most 32 fields");
+        return present_mask;
+    }
+    bool has(std::string_view field) const {
+        static_assert(field_count() <= 32, "FlexData presence tracks at most 32 fields");
+        bool     found = false;
+        uint32_t i     = 0;
+        visit(self(), [&](const char* n, const auto&) {
+            if (field == n) found = (present_mask >> i) & 1u;
+            ++i;
+        });
+        return found;
     }
 
     JsonDocument as_json_doc() const {
@@ -285,6 +313,9 @@ struct FlexData {
     }
 
 private:
+    uint32_t       present_mask = 0;   // the only state FlexData adds to a struct: 4 bytes, never stored
+
+    static constexpr size_t field_count() { return std::tuple_size_v<decltype(Derived::fields())>; }
     Derived&       self() { return static_cast<Derived&>(*this); }
     const Derived& self() const { return static_cast<const Derived&>(*this); }
 

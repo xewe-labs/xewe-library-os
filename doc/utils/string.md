@@ -41,6 +41,23 @@ inline std::string to_hex    (const uint8_t* b, size_t n);
 | `capitalize` | title-cases each word: uppercase first alphanumeric of a run, lowercase the rest. Any non-alphanumeric character starts a new word |
 | `to_hex` | uppercase hex of `n` bytes, no separators and no `0x` prefix |
 
+## Hex colours
+
+```cpp
+inline bool        parse_hex_color(const std::string& s, uint8_t& r, uint8_t& g, uint8_t& b);
+inline std::string to_hex_color   (uint8_t r, uint8_t g, uint8_t b);
+```
+
+| | |
+|---|---|
+| `parse_hex_color` | accepts `rrggbb` or `#rrggbb`: exactly six hex digits, either case, at most one leading `#`. Returns `false` and leaves `r`/`g`/`b` untouched for anything else: `""`, `#`, `#ff`, `fff`, `ff00zz`, seven digits, `##00ffff`, `0xff00`, a sign, spaces |
+| `to_hex_color` | `#RRGGBB`, uppercase like `to_hex`; `parse_hex_color` reads it back |
+
+```cpp
+uint8_t r, g, b;
+if (!xewe::str::parse_hex_color(args[0], r, g, b)) { os.serial.print("! Expected RRGGBB"); return; }
+```
+
 ## Trimming and splitting
 
 ```cpp

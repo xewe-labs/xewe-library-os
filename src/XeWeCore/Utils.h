@@ -9,4 +9,5 @@
 #include "Utils/AsyncTimer.h"
 #include "Utils/Span.h"
 #include "Utils/Color.h"
+#include "Utils/Pins.h"
 #include "Utils/LockGuard.h"

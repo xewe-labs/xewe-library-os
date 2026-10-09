@@ -26,7 +26,7 @@ are theirs, kept per component, with the ones the merge made obsolete rewritten 
 * **Include direction:** Utils ← Serial ← Cli, FlexData ← Nvs, all ← Module ← XeWeOs. Nothing
   below `Module.h` includes upward. `Module.h` forward-declares `class Os;` and must never include
   `XeWeOs.h` (that is a cycle); only the `.cpp` files do.
-* **One namespace, `xewe`** (plus `xewe::str` and `xewe::color`). The only global symbols are
+* **One namespace, `xewe`** (plus `xewe::str`, `xewe::color` and `xewe::pins`). The only global symbols are
   `XeWeOs` (alias of `xewe::Os`) and the macros below.
 * **Only dependency: ArduinoJson 7** (`depends=ArduinoJson (>=7.0.0)`). `architectures=esp32`.
 
@@ -35,6 +35,22 @@ are theirs, kept per component, with the ones the merge made obsolete rewritten 
 * **Header-only, and it must stay that way.** There is no `.cpp` under `Utils/`.
 * **`LockGuard` is included unconditionally** by `Utils.h` (esp32 only; every ESP32 core has
   FreeRTOS). The unit tests (`tests/unit`) provide a FreeRTOS stand-in in `tests/unit/shim/freertos/`.
+* **`Utils/Color.h`, `Utils/String.h` and `Utils/Pins.h` are host-includable:** standard library
+  only, no `<Arduino.h>` (Pins.h may include `<sdkconfig.h>` behind `__has_include`). Pure code in
+  other repositories (led effects, the fan curve) includes them in its own host tests, and
+  `tests/unit/run.sh` compiles each one without the shim. Keep them that way.
+* **`color::hsv_to_rgb` is pinned bit for bit** (`color_hsv_to_rgb_pinned`). The led module's
+  `hsv_spectrum` is a copy that must stay identical until it is deleted; do not touch the
+  arithmetic, not even its operation order.
+* **`str::parse_hex_color` accepts exactly `rrggbb` / `#rrggbb`** and leaves the outputs
+  untouched on failure; `to_hex_color` writes uppercase `#RRGGBB`. Modules migrate their own
+  copies to these; do not loosen the parser (no `0x`, no 3-digit form) without a decision.
+* **`xewe::pins` is a fixed table, no heap.** `claim` refuses a pin held by another owner and an
+  out-of-range GPIO, and only **warns** on a strapping pin. It stores the owner pointer (module
+  id `c_str()`), and reports through `pins::error_handler(error_context, msg)`, which the `Os`
+  constructor points at `report_error`. Keep that a plain function pointer: a `std::function`
+  global there cost 268 B flash and 24 B RAM in every firmware, claim or not. The strapping lists cite the datasheets in `doc/utils/pins.md`; change one only
+  with a citation. No core module claims pins.
 * **`AsyncTimer` is `xewe::AsyncTimer` since 2.0.0** (it was global in XeWeUtils 1.0.0). Do not
   move it back.
 * **`lower` and `to_lower` are duplicates on purpose-by-accident.** Both are public and callers
@@ -139,6 +155,10 @@ Everything here persists across reboots and survives a reflash. Take that seriou
   reported through `xewe::flex_error_handler`; see the Type rules in
   [`nvs/flexdata.md`](nvs/flexdata.md#type-rules). Do not reintroduce `as<M>()` without `is<M>()`
   (a string in a bool field used to read as `true`).
+* **FlexData field presence** (`present()`, `has(field)`) is the one piece of state `FlexData`
+  adds to a struct: a `uint32_t` set by `from_json_object` only (never by `set_field`/`from_blob`,
+  never stored). It is limited to 32 fields by `static_assert` in `present`/`has`. Do not store it
+  in the blob or the JSON. See [`nvs/flexdata.md`](nvs/flexdata.md#field-presence).
 * **Arduino `String` is not a supported `FlexData` field type.** The `static_assert` is the
   intended behaviour; do not add an overload without considering the blob layout.
 * **The `ESP_LOGE` tag stays `"XeWeNvs"`** so existing log filters keep working.
@@ -163,6 +183,11 @@ The **core only**. It knows no concrete modules, and it must stay that way.
 * **`System::reset()` erases the entire NVS partition** via `nvs.erase_all()` — every namespace on
   the device, including `root/init_setup_flag`, so the next boot re-runs initial setup. It is a
   factory reset.
+* **`XEWE_DEVICE_NAME` (build flag) replaces the first-boot name prompt** in
+  `System::begin_routines_init`: written to `system/device_name` only when that is empty. It has
+  to be a build flag or a tools `--define` (read from `<XeWeBuildInfo.h>`): a sketch `#define` never
+  reaches `XeWeOs.cpp`. Without it the prompt path is byte-for-byte the old one. Documented in
+  [`os/os.md`](os/os.md#build-time-device-name).
 * `System::reset`'s `disable_confirmed` starts `false` on purpose, so a programmatic call always
   aborts. Do not "fix" that to `true`.
 * **A module `id` is the CLI group *and* the NVS namespace**, so it is capped at 15 characters;
@@ -231,6 +256,6 @@ The **core only**. It knows no concrete modules, and it must stay that way.
 * Check your work without publishing anything:
 
   ```bash
-  tests/unit/run.sh                     # unit tests on this machine: Utils, Serial, Cli, Nvs (shim), FlexData
+  tests/unit/run.sh                     # unit tests on this machine: Utils, Pins, Serial, Cli, Nvs (shim), FlexData
   # board builds: compile every example for esp32c3 / esp32c6 / esp32s3
   ```

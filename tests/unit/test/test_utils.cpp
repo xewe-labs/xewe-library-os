@@ -102,6 +102,57 @@ TEST(color) {
     CHECK((xewe::color::rgb_to_hsv({255, 0, 0}) == std::array<uint8_t, 3>{0, 255, 255}));
 }
 
+// Pins hsv_to_rgb bit for bit. xewe-os-modules led fx/Math.h hsv_spectrum is a copy and must stay
+// identical until it is deleted in favour of Utils/Color.h. The checksum covers a 256 x 256 x 16 grid
+// and assumes run.sh's flags (no -O, so no FMA contraction; -O2 -ffp-contract=fast changes it).
+TEST(color_hsv_to_rgb_pinned) {
+    using A = std::array<uint8_t, 3>;
+    CHECK((xewe::color::hsv_to_rgb({85, 255, 255}) == A{0, 255, 0}));
+    CHECK((xewe::color::hsv_to_rgb({170, 255, 255}) == A{0, 0, 255}));
+    CHECK((xewe::color::hsv_to_rgb({43, 200, 180}) == A{178, 180, 38}));
+    CHECK((xewe::color::hsv_to_rgb({128, 128, 128}) == A{63, 127, 128}));
+    CHECK((xewe::color::hsv_to_rgb({255, 255, 255}) == A{255, 0, 0}));
+    CHECK((xewe::color::hsv_to_rgb({200, 100, 50}) == A{44, 30, 50}));
+    CHECK((xewe::color::hsv_to_rgb({254, 254, 254}) == A{254, 0, 6}));
+    uint64_t h = 1469598103934665603ULL;   // FNV-1a over every output byte
+    for (int hue = 0; hue < 256; ++hue)
+        for (int sat = 0; sat < 256; ++sat)
+            for (int val = 0; val < 256; val += 17) {
+                const A rgb = xewe::color::hsv_to_rgb({uint8_t(hue), uint8_t(sat), uint8_t(val)});
+                for (uint8_t c : rgb) h = (h ^ c) * 1099511628211ULL;
+            }
+    CHECK_EQ(h, uint64_t{0x2101a41e7915ca6eULL});
+}
+
+TEST(hex_color_parse) {
+    uint8_t r = 1, g = 2, b = 3;
+    CHECK(xewe::str::parse_hex_color("ff8000", r, g, b));
+    CHECK(r == 0xFF && g == 0x80 && b == 0x00);
+    CHECK(xewe::str::parse_hex_color("#12abEF", r, g, b));
+    CHECK(r == 0x12 && g == 0xAB && b == 0xEF);
+    CHECK(xewe::str::parse_hex_color("#000000", r, g, b));
+    CHECK(r == 0 && g == 0 && b == 0);
+}
+
+TEST(hex_color_rejects_malformed) {
+    const char* bad[] = {"", "#", "#ff", "ff", "ff00zz", "#ff00zz", "#ff00001", "ff00001", "fff",
+                         "##00ffff", "0xff00", "-12345", "+12345", " 12345", "12345 ", "123456#",
+                         "#12345G", "red", "ff 000"};
+    for (const char* s : bad) {
+        uint8_t r = 7, g = 8, b = 9;
+        if (xewe::str::parse_hex_color(s, r, g, b)) host_test::fail(__FILE__, __LINE__, std::string("accepted ") + s);
+        CHECK(r == 7 && g == 8 && b == 9);   // untouched on failure
+    }
+}
+
+TEST(hex_color_format_round_trip) {
+    CHECK_EQ(xewe::str::to_hex_color(0xFF, 0x80, 0x00), std::string("#FF8000"));
+    CHECK_EQ(xewe::str::to_hex_color(0, 0, 0), std::string("#000000"));
+    uint8_t r = 0, g = 0, b = 0;
+    CHECK(xewe::str::parse_hex_color(xewe::str::to_hex_color(0x0A, 0xB0, 0xC3), r, g, b));
+    CHECK(r == 0x0A && g == 0xB0 && b == 0xC3);
+}
+
 TEST(async_timer) {
     host::set_millis(1000);
     xewe::AsyncTimer<double> t(100, 0.0, 10.0);

@@ -8,6 +8,13 @@
 #include <cstdio>
 #include "Testing.h"
 
+// XEWE_DEVICE_NAME may come from the tools' generated header, like XEWE_TESTING
+#if !defined(XEWE_DEVICE_NAME) && defined(__has_include)
+#if __has_include(<XeWeBuildInfo.h>)
+#include <XeWeBuildInfo.h>
+#endif
+#endif
+
 
 namespace xewe {
 
@@ -17,7 +24,11 @@ Os::Os(OsConfig config)
     : config(std::move(config))
     , cli{serial}
     , system(*this)
-{}
+{
+    // modules may claim pins from their constructors: report_error queues until begin()
+    pins::error_context = this;
+    pins::error_handler = [](void* os, const char* message) { static_cast<Os*>(os)->report_error("%s", message); };
+}
 
 void Os::begin() {
     serial.begin(config.serial);
@@ -321,6 +332,13 @@ void System::begin_routines_required() {
 }
 
 void System::begin_routines_init() {
+#ifdef XEWE_DEVICE_NAME
+    // build-time name: no prompt; a name already in NVS is kept (doc/os/os.md, "Build-time device name")
+    if (os.nvs.read<std::string>(id, "device_name").empty()) {
+        os.nvs.write<std::string>(id, "device_name", XEWE_DEVICE_NAME);
+    }
+    os.serial.print("Device name: " + os.nvs.read<std::string>(id, "device_name"));
+#else
     std::string name      = "";
     bool        confirmed = false;
     while (!confirmed) {
@@ -328,6 +346,7 @@ void System::begin_routines_init() {
         confirmed = os.serial.get_yn("Confirm \"" + name + "\"?");
     }
     os.nvs.write<std::string>(id, "device_name", name);
+#endif
 }
 
 void System::reset(const bool verbose,

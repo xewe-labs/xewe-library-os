@@ -213,3 +213,51 @@ TEST(flex_corrupt_blobs_rejected) {
     // vector count 4 G: reserve() used to allocate 16 GiB and abort (bad_alloc)
     CHECK(!p.from_blob(with(34, 0xFF)));
 }
+
+// ---- field presence (CC7): missing vs default vs present ----
+
+namespace {
+struct Versioned : xewe::FlexData<Versioned> {
+    uint8_t     schema = 1;
+    std::string name   = "pad";
+    static constexpr auto fields() {
+        return std::make_tuple(xewe::fld("schema", &Versioned::schema), xewe::fld("name", &Versioned::name));
+    }
+};
+} // namespace
+
+TEST(flex_presence_missing_vs_default) {
+    Versioned v;
+    CHECK(v.present() == 0);
+    CHECK(v.update(R"({"name":"x"})"));
+    CHECK(!v.has("schema") && v.schema == 1);                      // missing: default value, not present
+    CHECK(v.has("name"));
+    CHECK(v.present() == 0b10u);
+    CHECK(v.update(R"({"schema":1})"));
+    CHECK(v.has("schema") && v.schema == 1);                       // present, same value as the default
+    CHECK(!v.has("name"));                                         // cleared by the next load
+    CHECK(!v.has("nope"));
+}
+
+TEST(flex_presence_null_and_rejected_are_not_present) {
+    Capture   c;
+    Versioned v;
+    CHECK(v.update(R"({"schema":null,"name":"y"})"));
+    CHECK(!v.has("schema") && v.has("name"));
+    CHECK(!v.update(R"({"schema":"2","name":"z"})"));             // wrong type: rejected
+    CHECK(!v.has("schema") && v.has("name") && v.schema == 1);
+    CHECK(Versioned::from_json(R"({"schema":3})").has("schema"));
+    CHECK(!Versioned::from_json("{}").has("schema"));
+}
+
+TEST(flex_presence_nested_and_unchanged_by_blob) {
+    Probe p;
+    CHECK(p.update(R"({"in":{"s":"q"},"vi":[{"a":5}]})"));
+    CHECK(p.has("in") && p.has("vi") && !p.has("b"));
+    CHECK(p.in.has("s") && !p.in.has("a"));                       // nested structs track their own
+    CHECK(p.vi.size() == 1 && p.vi[0].has("a") && !p.vi[0].has("s"));
+    const uint32_t before = p.present();
+    CHECK(p.from_blob(Probe{}.to_blob()));
+    CHECK(p.present() == before);                                  // from_blob does not touch it
+    CHECK(p.set_field("b", true) && !p.has("b"));                  // neither does set_field
+}

@@ -35,6 +35,12 @@ for std in c++17 gnu++2b; do
         echo "   ok $(basename "$p")"
     done
 
+    echo "== $std: host-includable headers (standard library only, no Arduino shim)"
+    for h in Utils/Color.h Utils/String.h Utils/Pins.h; do
+        printf '#include <XeWeCore/%s>\n' "$h" | "$CXX" -std="$std" -Wall -Wextra -fno-exceptions -I "$SRC" -x c++ -fsyntax-only -
+        echo "   ok $h"
+    done
+
     echo "== $std: tests"
     "$CXX" -std="$std" "${FLAGS[@]}" "$HERE"/test/*.cpp "${JSON_TESTS[@]}" "${LIB_SRCS[@]}" -o "$OUT/tests.$std"
     "$OUT/tests.$std"

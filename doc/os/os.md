@@ -61,6 +61,10 @@ Os& operator=(const Os&) = delete;
 
 Non-copyable. Modules hold a reference to it.
 
+The constructor points [`xewe::pins::error_handler`](../utils/pins.md#messages) at
+`report_error`, so GPIO claim conflicts from module constructors are queued like registration
+errors.
+
 Member declaration order in the class is deliberate: the private `modules` vector and `config` are
 declared **before** the public service members, so the vector already exists when `system`
 constructs itself and registers.
@@ -96,6 +100,27 @@ again.
 
 Boot output order is: banner → the `System` project/version header → each module's
 `<name> Setup` header → `System Setup Complete`.
+
+### Build-time device name
+
+`XEWE_DEVICE_NAME` (a string literal) pre-answers the first-boot name prompt, so provisioning can
+run unattended:
+
+```bash
+xewe build --chip s3 --define 'XEWE_DEVICE_NAME="Laptop Chiller"'
+arduino-cli compile --build-property "compiler.cpp.extra_flags='-DXEWE_DEVICE_NAME=\"Laptop Chiller\"'" ...
+```
+
+The inner single quotes keep a name with spaces in one compiler argument (arduino-cli splits the
+recipe on spaces outside quotes); without them `Chiller"` becomes a stray file name.
+
+When it is defined, `System`'s first-boot setup does not prompt: if `system/device_name` is empty
+it writes `XEWE_DEVICE_NAME` there, and either way it prints `Device name: <name>`. A name already
+in NVS (set earlier with `$system set_device_name`) is kept. `$system set_device_name` still renames
+the device afterwards. A `#define` in the sketch does **not** work: the name is read by
+`XeWeOs.cpp`, a library file, so it has to be a build flag or come from the tools' generated
+`<XeWeBuildInfo.h>` (which `XeWeOs.cpp` includes when present). Without the define the prompt is
+unchanged and nothing of this is compiled in.
 
 ## loop
 
