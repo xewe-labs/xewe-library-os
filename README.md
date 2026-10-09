@@ -56,11 +56,6 @@ Modules derive from `xewe::Module`; start from [`extras/ModuleTemplate`](extras/
 Behaviour is unchanged except that the default `OsConfig::url` printed in the boot header now
 points to `https://github.com/xewe-labs/xewe-os-core`.
 
-## Changes
-
-Release notes are in [CHANGELOG.md](CHANGELOG.md).
-The 2.0.1 serial input queue and the unreleased hardening changes are listed there.
-
 ## Documentation
 
 The full reference is in [`doc/`](doc/README.md). Rules for coding agents: [`doc/AGENTS.md`](doc/AGENTS.md).
