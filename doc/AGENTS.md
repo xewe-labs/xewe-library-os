@@ -207,7 +207,7 @@ The **core only**. It knows no concrete modules, and it must stay that way.
 * pytest files for a real board, run through the `xewe-os-tools` pytest plugin from an xewe
   project (the phase-2 harness), never on their own. Commands are in
   [`../tests/hardware/README.md`](../tests/hardware/README.md): pass the files after `--`, add
-  `--deselect=build/xewe-os-modules`, take the board lock (`flock <project>/.board.lock`), and set
+  `--deselect=build/modules`, take the board lock (`flock <project>/.board.lock`), and set
   `XEWE_HWTEST_DEFINES=XEWE_TESTING=1` for the `test_hooks_*` files.
 * **Credentials:** provisioning reads Wi-Fi and device credentials from the harness's dotenv file
   through the tools. Agents never open, print or copy that file, or any key file; let the tools

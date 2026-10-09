@@ -26,10 +26,10 @@ H=/home/user/wip/xewe-labs/migration/phase_2/hw-s3
 D=/home/user/wip/xewe-labs/done/xewe-os-core/tests/hardware
 cd $H
 XEWE_HWTEST_LOG_DIR=/path/to/logs \
-flock $H/.board.lock build/.venv/bin/python -m xewe test --chip s3 --require-board -- \
+flock $H/.board.lock build/tools/.venv/bin/python -m xewe test --chip s3 --require-board -- \
   $D/test_cli_parsing.py $D/test_serial_input.py $D/test_system.py \
   $D/test_prompts.py $D/test_nvs_persistence.py $D/test_soak_short.py \
-  --deselect=build/xewe-os-modules -v -s --junitxml=/path/to/logs/junit.xml
+  --deselect=build/modules -v -s --junitxml=/path/to/logs/junit.xml
 ```
 
 `XEWE_HWTEST_LOG_DIR` (optional) receives heap/uptime CSVs (`<HHMM>-heap-*.csv`).

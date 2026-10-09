@@ -6,7 +6,7 @@
 Runs standalone (outside pytest) against a provisioned board, or is imported by
 ``test_soak_*.py`` (``run_soak`` on the session console). Run with the harness venv:
 
-    flock <hw-s3>/.board.lock -c '<hw-s3>/build/.venv/bin/python tests/hardware/soak.py \
+    flock <hw-s3>/.board.lock -c '<hw-s3>/build/tools/.venv/bin/python tests/hardware/soak.py \
         --port /dev/ttyACM0 --duration 900 --csv <logs>/HHMM-soak.csv --log <logs>/HHMM-soak.log'
 
 Every command has an expected-reply regex; a command whose reply does not arrive within its timeout
