@@ -34,7 +34,7 @@
   "export": {
     "exclude": [
       ".github",
-      "extras/test"
+      "tests"
     ]
   }
 }

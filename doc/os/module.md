@@ -4,8 +4,8 @@
 
 A module registers itself with the Os on construction, stores its own settings, and
 overrides only the hooks it needs. Start from
-[`extras/ModuleTemplate`](../../extras/ModuleTemplate) (every hook, commented) or
-[`examples/05_Os/SensorModule.h`](../../examples/05_Os/SensorModule.h) (a complete one).
+[`examples/02_MyModule`](../../examples/02_MyModule) (every hook, commented) or
+[`examples/15_Os/SensorModule.h`](../../examples/15_Os/SensorModule.h) (a complete one).
 
 ## Constructor
 

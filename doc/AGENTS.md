@@ -34,7 +34,7 @@ are theirs, kept per component, with the ones the merge made obsolete rewritten 
 
 * **Header-only, and it must stay that way.** There is no `.cpp` under `Utils/`.
 * **`LockGuard` is included unconditionally** by `Utils.h` (esp32 only; every ESP32 core has
-  FreeRTOS). The host tests provide a FreeRTOS stand-in in `extras/host/shim/freertos/`.
+  FreeRTOS). The host tests provide a FreeRTOS stand-in in `tests/host/shim/freertos/`.
 * **`AsyncTimer` is `xewe::AsyncTimer` since 2.0.0** (it was global in XeWeUtils 1.0.0). Do not
   move it back.
 * **`lower` and `to_lower` are duplicates on purpose-by-accident.** Both are public and callers
@@ -46,7 +46,7 @@ are theirs, kept per component, with the ones the merge made obsolete rewritten 
 * **`xewe::validate` must stay exception-free.** A malformed string is a normal input here, not
   an error path — but it is handled by delegating to `xewe::str::parse_int` / `parse_float`, which
   report failure by returning `false`. Never reintroduce `std::stoll`/`std::stod` or `try`/`catch`;
-  `extras/host/run.sh` builds with `-fno-exceptions`.
+  `tests/host/run.sh` builds with `-fno-exceptions`.
 
 ## Serial (`src/XeWeCore/Serial.{h,cpp}`)
 
@@ -178,20 +178,20 @@ The **core only**. It knows no concrete modules, and it must stay that way.
 * **The protected member is `os` (`xewe::Os&`)** *(changed in 2.0.0, was `controller`)*. A derived
   constructor names its `xewe::Os&` parameter **`host`** (never `os`, which would hide the member),
   passes it to `Module(host, ...)`, and command handlers capture `[this]` only and use `os.` inside.
-  `[&]` would bind a shadowing parameter silently. See `extras/ModuleTemplate` and the modules
+  `[&]` would bind a shadowing parameter silently. See `examples/02_MyModule` and the modules
   repository's `CONTRACT.md`.
 * **`System::begin_routines_required()` calls `esp_log_level_set("*", ESP_LOG_NONE)`.** It is
   deliberate: the console is a user interface. If you silence or re-enable logging while
   debugging, put it back.
 * **`loop()` must not block** in any module, and prompts (`get_yn`, `get_string`) belong in setup
   routines only — they block until answered.
-* **Keep `extras/ModuleTemplate` in step.** It is what module authors copy; a new hook or changed
+* **Keep `examples/02_MyModule` in step.** It is what module authors copy; a new hook or changed
   signature has to appear there too.
 
 ## Test hooks (XEWE_TESTING)
 
 * **What:** `src/XeWeCore/Testing.{h,cpp}` add a `$test` CLI group (NVS, FlexData, parser,
-  prompt, heap and echo commands, one `key=value` line per reply) that `extras/hwtest` drives.
+  prompt, heap and echo commands, one `key=value` line per reply) that `tests/hardware` drives.
   `Os::begin()` registers it after the banner, before the modules begin.
 * **Build with the define:** through the tools, `xewe build --chip s3 --define XEWE_TESTING=1`
   then `xewe flash --no-build` (a plain `xewe flash` rebuilds without it; `Testing.h` picks the
@@ -202,11 +202,11 @@ The **core only**. It knows no concrete modules, and it must stay that way.
   and no `$test` string in the binary. Check that when you add a hook. No crash, abort or
   watchdog hooks; namespaces a hook may write or erase must start with `xt`.
 
-## Hardware tests (extras/hwtest)
+## Hardware tests (tests/hardware)
 
 * pytest files for a real board, run through the `xewe-os-tools` pytest plugin from an xewe
   project (the phase-2 harness), never on their own. Commands are in
-  [`../extras/hwtest/README.md`](../extras/hwtest/README.md): pass the files after `--`, add
+  [`../tests/hardware/README.md`](../tests/hardware/README.md): pass the files after `--`, add
   `--deselect=build/xewe-os-modules`, take the board lock (`flock <project>/.board.lock`), and set
   `XEWE_HWTEST_DEFINES=XEWE_TESTING=1` for the `test_hooks_*` files.
 * **Credentials:** provisioning reads Wi-Fi and device credentials from the harness's dotenv file
@@ -227,6 +227,6 @@ The **core only**. It knows no concrete modules, and it must stay that way.
 * Check your work without publishing anything:
 
   ```bash
-  extras/host/run.sh                     # host unit tests: Utils, Serial, Cli, Nvs (shim), FlexData
+  tests/host/run.sh                     # host unit tests: Utils, Serial, Cli, Nvs (shim), FlexData
   # board builds: compile every example for esp32c3 / esp32c6 / esp32s3
   ```

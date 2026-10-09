@@ -31,7 +31,7 @@ Always include `<XeWeCore.h>`. The parts work on their own too: `xewe::SerialPor
 | `os.cli` | `xewe::Cli` | `$group command args` parser and `$help` |
 | `os.system` | `xewe::System` | the built-in module: restart, info, device name |
 
-Modules derive from `xewe::Module`; start from [`extras/ModuleTemplate`](extras/ModuleTemplate).
+Modules derive from `xewe::Module`; start from [`examples/02_MyModule`](examples/02_MyModule).
 
 * **Input queue:** serial input keeps up to four completed lines, and a line over 254 characters is dropped whole.
 * **Bounded confirmations:** `$<module> disable` and `$system reset` ask at most twice, 15 s each, and cancel unless the answer is yes.
@@ -39,7 +39,8 @@ Modules derive from `xewe::Module`; start from [`extras/ModuleTemplate`](extras/
 
 ## Examples
 
-`01_Utils`, `02_Serial`, `03_Cli`, `04_Nvs`, `05_Os` in [`examples/`](examples/).
+Start with `01_Hello` (level 1: the Os alone) and `02_MyModule` (level 2: your own module).
+Reference demos: `11_Utils`, `12_Serial`, `13_Cli`, `14_Nvs`, `15_Os`. See [`examples/`](examples/README.md).
 
 ## Upgrading from the 1.0.0 libraries
 
