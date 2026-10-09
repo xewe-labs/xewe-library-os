@@ -89,7 +89,7 @@ def test_type_ahead_is_discarded_by_prompt(cli):
 
 def test_disable_yes_then_enable(cli):
     """Module::disable('y') → reset + restart → disabled after boot; Module::enable restores (restart)."""
-    from xewe.serialio import BOOT_READY, wait_for_banner
+    from xewe.board.serialio import BOOT_READY, wait_for_banner
 
     def reboot_wait():
         cli.c.expect(r"Rebooting", 10)

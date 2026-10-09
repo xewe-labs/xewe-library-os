@@ -135,6 +135,10 @@ Everything here persists across reboots and survives a reflash. Take that seriou
   stored float on every device unreadable.
 * `std::string_view` and `const char*` are deliberately write-only — there is nowhere to return a
   view into.
+* **FlexData JSON assignment is type-matched** (Q4): a mistyped field is rejected, kept, and
+  reported through `xewe::flex_error_handler`; see the Type rules in
+  [`nvs/flexdata.md`](nvs/flexdata.md#type-rules). Do not reintroduce `as<M>()` without `is<M>()`
+  (a string in a bool field used to read as `true`).
 * **Arduino `String` is not a supported `FlexData` field type.** The `static_assert` is the
   intended behaviour; do not add an overload without considering the blob layout.
 * **The `ESP_LOGE` tag stays `"XeWeNvs"`** so existing log filters keep working.

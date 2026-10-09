@@ -51,20 +51,20 @@ there.
 
 ```cpp
 void         to_json_object  (JsonObject o)      const;
-void         from_json_object(JsonVariantConst v);
+bool         from_json_object(JsonVariantConst v);
 JsonDocument as_json_doc     ()                  const;
 std::string  as_json_str     ()                  const;
-void         update          (std::string_view json);
+bool         update          (std::string_view json);
 static Derived from_json     (std::string_view json);
 ```
 
 | | |
 |---|---|
 | `to_json_object` | writes every field into an existing object |
-| `from_json_object` | assigns **only the keys present and non-null** in the source |
+| `from_json_object` | assigns **only the keys present and non-null** in the source, each only if its JSON type matches (see Type rules); `false` if any was rejected |
 | `as_json_doc` | a `JsonDocument` by value (ArduinoJson 7 elastic document) |
 | `as_json_str` | the serialized object |
-| `update` | parse and merge — a partial update, leaving unmentioned fields alone |
+| `update` | parse and merge — a partial update, leaving unmentioned fields alone; `false` on a parse error or a rejected field |
 | `from_json` | static factory: default-construct, then merge |
 
 ```cpp
@@ -72,8 +72,29 @@ s.update(R"({"brightness": 200})");     // name is untouched
 std::string json = s.as_json_str();
 ```
 
-**`update` fails silently.** Malformed JSON is dropped with no error and no return value; the
-object is unchanged. Validate before calling it if the input is untrusted.
+**Malformed JSON is not reported.** `update` returns `false` and the object is unchanged, but
+nothing is printed. Type mismatches are reported (below).
+
+### Type rules
+
+Assignment is type-matched (`is<M>()` before `as<M>()`; owner decision Q4, 2026-10-09). A
+present value of the wrong JSON type is **rejected**: that field keeps its previous value, the
+other fields are still applied, the call returns `false`, and `xewe::flex_error_handler` gets
+`! <Struct>.<field>: expected <type>, got <json type>`, e.g. `! Settings.name: expected string,
+got integer`.
+
+| Field type | Accepted JSON | Rejected (examples) |
+|---|---|---|
+| `bool` | `true` / `false` | `"false"`, `"yes"`, `""`, `0`, `1` |
+| integers | an integer within the field's range | `1.5`, `"7"`, `-1` into unsigned, `300` into `uint8_t` |
+| `float` / `double` | any number (integer or float) | `"1.5"`, `true` |
+| `std::string` | a string | `5`, `true`, objects, arrays |
+| nested struct | an object (its own fields follow these rules and report as `<Inner>.<field>`) | anything else |
+| `std::vector<T>` | an array (elements converted as before, not type-checked) | anything else |
+
+`xewe::flex_error_handler` is a `std::function<void(std::string_view)>`; `Os::begin` points it at
+the console. Unset, rejections are silent but still happen. A rejection inside a nested struct is
+reported but does not make the outer call return `false`.
 
 ## Field access by name
 
@@ -83,8 +104,9 @@ bool        set_field(std::string_view name, const V& value);
 std::string get_field(std::string_view name) const;
 ```
 
-`set_field` round-trips the value through a `JsonDocument`, so it applies JSON-style type
-coercion, and returns `false` when no field has that name. `get_field` returns the value
+`set_field` round-trips the value through a `JsonDocument` and applies the same
+[type rules](#type-rules): it returns `false` when no field has that name or the value's type does
+not match (`set_field("enabled", "true")` on a `bool` is rejected). `get_field` returns the value
 **JSON-serialized** — strings come back quoted, nested structs as `{...}` — and the literal string
 `"null"` for an unknown name.
 

@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from xewe.serialio import Console
+from xewe.board.serialio import Console
 
 NO_HOOKS = (
     "firmware built without the $test hooks; rebuild with XEWE_HWTEST_DEFINES=XEWE_TESTING=1 "

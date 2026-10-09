@@ -30,8 +30,8 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+from xewe.board.serialio import BOOT_READY, BOOT_UNPROVISIONED, Console, ExpectTimeout, wait_for_banner
 from xewe.report import XeweError
-from xewe.serialio import BOOT_READY, BOOT_UNPROVISIONED, Console, ExpectTimeout, wait_for_banner
 
 # ---------------------------------------------------------------- command mix
 # (command, reply regex, timeout s). Read-only or error-path commands only: nothing here writes

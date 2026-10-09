@@ -86,18 +86,101 @@ TEST(flex_malformed_is_ignored) {
 
 TEST(flex_wrong_types_and_huge_numbers) {
     const Probe p = Probe::from_json(R"({"b":"yes","i":"abc","v":{"x":1},"in":[1],"s":5})");
-    CHECK(p.i == 0 && p.v.empty() && p.s == "5");
-    // documented finding (2026-10-08, not fixed): ArduinoJson's as<bool>() turns any string into
-    // true, so FlexData reads {"b":"false"} as b == true
-    CHECK(p.b == true);
-    CHECK(Probe::from_json(R"({"b":"false"})").b == true);
+    CHECK_EQ(p.as_json_str(), kDefault);                            // every field rejected (Q4)
     const Probe h = Probe::from_json(R"({"i":99999999999999999999,"u":-1})");
-    CHECK(h.i == 0 && h.u == 0);                                    // out of range -> 0
+    CHECK(h.i == 0 && h.u == 0);                                    // out of range -> rejected
     CHECK(blob_round_trip(h));
     // documented finding: a non-finite float serializes as null, so the JSON is not stable
     const Probe inf = Probe::from_json(R"({"f":1e400})");
     CHECK(inf.as_json_str().find("\"f\":null") != std::string::npos);
     CHECK(Probe::from_json(inf.as_json_str()).as_json_str() != inf.as_json_str());
+}
+
+// ---- Q4 (2026-10-09): type-matched assignment -------------------------------
+
+namespace {
+// captures what FlexData reports while in scope
+struct Capture {
+    std::vector<std::string> msgs;
+    Capture() { xewe::flex_error_handler = [this](std::string_view m) { msgs.emplace_back(m); }; }
+    ~Capture() { xewe::flex_error_handler = nullptr; }
+};
+} // namespace
+
+TEST(flex_type_string_into_bool_rejected) {
+    Capture c;
+    Probe   p;
+    p.b = true;
+    CHECK(!p.update(R"({"b":"false"})"));
+    CHECK(p.b == true);                                             // unchanged, not coerced
+    CHECK(c.msgs.size() == 1);
+    if (!c.msgs.empty()) CHECK_EQ(c.msgs[0], std::string("! Probe.b: expected bool, got string"));
+    p.b = false;
+    CHECK(!p.update(R"({"b":"yes"})") && p.b == false);
+    CHECK(!p.update(R"({"b":1})") && p.b == false);                 // a number is not a bool
+}
+
+TEST(flex_type_bool_accepted) {
+    Capture c;
+    Probe   p;
+    CHECK(p.update(R"({"b":true})") && p.b == true);
+    CHECK(p.update(R"({"b":false})") && p.b == false);
+    CHECK(c.msgs.empty());
+}
+
+TEST(flex_type_number_into_string_rejected) {
+    Capture c;
+    Probe   p;
+    p.s = "keep";
+    CHECK(!p.update(R"({"s":5})"));
+    CHECK_EQ(p.s, std::string("keep"));
+    if (!c.msgs.empty()) CHECK_EQ(c.msgs[0], std::string("! Probe.s: expected string, got integer"));
+    CHECK(p.update(R"({"s":"5"})") && p.s == "5");
+}
+
+TEST(flex_type_numbers) {
+    Capture c;
+    Probe   p;
+    CHECK(p.update(R"({"f":2,"d":-3})") && p.f == 2.0f && p.d == -3.0);   // integer -> float ok
+    p.i = 4;
+    CHECK(!p.update(R"({"i":1.5})") && p.i == 4);                   // float -> integer rejected
+    CHECK(!p.update(R"({"i":"7"})") && p.i == 4);                   // string -> integer rejected
+    CHECK(!p.update(R"({"u":-1})") && p.u == 0);                    // range check kept
+    CHECK(!p.update(R"({"f":"1.5"})") && p.f == 2.0f);
+    CHECK(c.msgs.size() == 4);
+    if (c.msgs.size() == 4) {
+        CHECK_EQ(c.msgs[0], std::string("! Probe.i: expected integer, got float"));
+        CHECK_EQ(c.msgs[2], std::string("! Probe.u: expected integer, got out-of-range integer"));
+        CHECK_EQ(c.msgs[3], std::string("! Probe.f: expected number, got string"));
+    }
+}
+
+TEST(flex_type_mixed_document_partially_applied) {
+    Capture c;
+    Probe   p;
+    p.s = "old";
+    CHECK(!p.update(R"({"i":9,"b":"true","s":7,"f":0.5,"in":{"a":3,"s":1},"v":[1,2]})"));
+    CHECK(p.i == 9 && p.f == 0.5f && p.v.size() == 2);              // good fields applied
+    CHECK(p.b == false && p.s == "old");                            // bad fields unchanged
+    CHECK(p.in.a == 3 && p.in.s.empty());                           // nested: same rules, own report
+    CHECK(c.msgs.size() == 3);
+    if (c.msgs.size() == 3) CHECK_EQ(c.msgs[2], std::string("! Inner.s: expected string, got integer"));
+}
+
+TEST(flex_type_set_field) {
+    Capture c;
+    Probe   p;
+    CHECK(!p.set_field("b", "true") && p.b == false);
+    CHECK(p.set_field("b", true) && p.b == true);
+    CHECK(!p.set_field("s", 3) && p.s.empty());
+    CHECK(p.set_field("d", 2) && p.d == 2.0);
+    CHECK(!p.set_field("nope", 1));
+    CHECK(c.msgs.size() == 2);
+}
+
+TEST(flex_type_silent_without_handler) {
+    Probe p;
+    CHECK(!p.update(R"({"b":"x"})") && p.b == false);               // no handler: still rejected
 }
 
 TEST(flex_unicode_and_deep_nesting) {

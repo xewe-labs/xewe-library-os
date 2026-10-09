@@ -22,6 +22,7 @@ Os::Os(OsConfig config)
 void Os::begin() {
     serial.begin(config.serial);
     nvs.set_error_handler([this](std::string_view message) { serial.print(message); });
+    flex_error_handler = [this](std::string_view message) { serial.print(message); };
 
     if (config.print_banner) print_banner();
 

@@ -136,6 +136,8 @@ void flex_bad(SerialPort& out, const std::string& name) {
     if (name == "wrongtypes") return flex_report(out, R"({"b":"yes","i":"abc","v":{"x":1},"in":[1],"s":5})");
     if (name == "hugenum")    return flex_report(out, R"({"i":99999999999999999999,"u":-1,"l":1e30,"f":1e400,"d":-1e400})");
     if (name == "unicode")    return flex_report(out, R"({"s":"é😀\u0000x"})");
+    // Q4: rejected with "! Probe.b: expected bool, got string"; b stays false, i is applied
+    if (name == "boolstr")    return flex_report(out, R"({"b":"false","i":3})");
     if (name == "deep") {
         std::string j;
         for (int k = 0; k < 200; ++k) j += "{\"in\":";

@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from xewe.serialio import BOOT_READY, BOOT_UNPROVISIONED, wait_for_banner
+from xewe.board.serialio import BOOT_READY, BOOT_UNPROVISIONED, wait_for_banner
 
 BOOT_TIMEOUT = 90.0
 MODULES = ["System", "Buttons", "Pins", "Wifi", "Time", "Scheduler", "Web Interface"]

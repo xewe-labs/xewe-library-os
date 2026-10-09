@@ -4,7 +4,7 @@
 import re
 import time
 
-from xewe.serialio import BOOT_READY, BOOT_UNPROVISIONED, wait_for_banner
+from xewe.board.serialio import BOOT_READY, BOOT_UNPROVISIONED, wait_for_banner
 
 CYCLES = 5
 BOOT_TIMEOUT = 90.0

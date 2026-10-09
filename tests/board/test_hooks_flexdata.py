@@ -56,9 +56,9 @@ def test_partial_input_fills_defaults(hooks):
     ("null", "Ok", DEFAULT),
     ("array", "Ok", DEFAULT),
     ("deep", "TooDeep", DEFAULT),
-    # FINDING (not fixed, see core-test-report wave 2): as<bool>() turns ANY string into true,
-    # so {"b":"yes"} (and {"b":"false"}) set b=true; numbers become strings
-    ("wrongtypes", "Ok", DEFAULT.replace('"s":""', '"s":"5"', 1).replace('"b":false', '"b":true')),
+    # Q4 (2026-10-09): type-matched assignment, every mistyped field is rejected and kept
+    ("wrongtypes", "Ok", DEFAULT),
+    ("boolstr", "Ok", DEFAULT.replace('"i":0', '"i":3')),
 ])
 def test_malformed_json(hooks, case, parse, json):
     lines = hooks.run(f"$test flex_bad {case}", until=r"^blob_len=")
@@ -111,9 +111,12 @@ def test_corrupt_blob_rejected(hooks, case):
     hooks.alive()
 
 
-def test_string_coerced_to_bool_true(hooks):
-    """Documents current behaviour: the string "false" stored in a bool field reads as true."""
-    assert '"b":true' in flex(hooks, '{"b":"false"}')["json"]
+def test_string_into_bool_rejected(hooks):
+    """Q4 (2026-10-09): a string in a bool field is rejected and reported; b keeps its value.
+    UNVERIFIED on hardware (written while the board was offline)."""
+    lines = hooks.run("$test flex_bad boolstr", until=r"^blob_len=")
+    assert any("! Probe.b: expected bool, got string" in line for line in lines)
+    assert any(line.startswith("json=") and '"b":false' in line and '"i":3' in line for line in lines)
 
 
 def test_unknown_case(hooks):

@@ -5,7 +5,9 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -146,6 +148,47 @@ constexpr Field<C, M> fld(const char* n,
                           M C::* p) { return {n, p}; }
 
 // ----------------------------------------------------------------------------
+// JSON type mismatches (a string in a bool field, a number in a string field, ...)
+// are rejected field by field and reported here; Os::begin points it at the
+// console. Unset (the default) means silent.
+// ----------------------------------------------------------------------------
+inline std::function<void(std::string_view message)> flex_error_handler;
+
+namespace flex_detail {
+template <typename T> struct is_vector : std::false_type {};
+template <typename T> struct is_vector<std::vector<T>> : std::true_type {};
+
+// the struct's unqualified name, from the compiler's signature string (no RTTI needed)
+template <typename T>
+std::string_view type_name() {
+    std::string_view s = __PRETTY_FUNCTION__;           // "... [with T = ns::Name; ...]" / "[T = Name]"
+    const size_t     b = s.find("T = ") + 4;
+    s                  = s.substr(b, s.find_first_of(";]", b) - b);
+    const size_t     c = s.rfind("::");
+    return c == std::string_view::npos ? s : s.substr(c + 2);
+}
+
+template <typename M>
+constexpr const char* expected_kind() {
+    if constexpr (std::is_same_v<M, bool>) return "bool";
+    else if constexpr (std::is_integral_v<M>) return "integer";
+    else if constexpr (std::is_floating_point_v<M>) return "number";
+    else if constexpr (std::is_same_v<M, std::string>) return "string";
+    else if constexpr (is_vector<M>::value) return "array";
+    else return "object";
+}
+
+inline const char* json_kind(JsonVariantConst x, bool want_integer) {
+    if (x.is<bool>()) return "bool";
+    if (x.is<long long>() || x.is<unsigned long long>()) return want_integer ? "out-of-range integer" : "integer";
+    if (x.is<double>()) return "float";
+    if (x.is<const char*>()) return "string";
+    if (x.is<JsonArrayConst>()) return "array";
+    return "object";
+}
+} // namespace flex_detail
+
+// ----------------------------------------------------------------------------
 // FlexData<Derived>: all generic methods, written once. Derived supplies a
 // static constexpr fields() tuple of fld("name", &Derived::member) entries.
 // ----------------------------------------------------------------------------
@@ -157,11 +200,13 @@ struct FlexData {
     void                     to_json_object(JsonObject o) const {
         visit(self(), [&](const char* n, const auto& v) { o[n] = v; });
     }
-    void from_json_object(JsonVariantConst v) {
+    // false if any present field had the wrong JSON type (that field is left unchanged)
+    bool from_json_object(JsonVariantConst v) {
+        bool ok = true;
         visit(self(), [&](const char* n, auto& ref) {
-            using M = std::decay_t<decltype(ref)>;
-            if (!v[n].isNull()) ref = v[n].template as<M>();
+            if (!v[n].isNull()) ok &= assign(n, ref, v[n]);
         });
+        return ok;
     }
 
     JsonDocument as_json_doc() const {
@@ -175,11 +220,12 @@ struct FlexData {
         return out;
     }
 
-    // partial merge: only keys present in the JSON are overwritten
-    void update(std::string_view json) {
+    // partial merge: only keys present in the JSON are overwritten; false on a parse error or
+    // when any field was rejected for its type
+    bool update(std::string_view json) {
         JsonDocument doc;
-        if (deserializeJson(doc, json)) return;
-        from_json_object(doc.as<JsonVariantConst>());
+        if (deserializeJson(doc, json)) return false;
+        return from_json_object(doc.as<JsonVariantConst>());
     }
     static Derived from_json(std::string_view json) {
         Derived d;
@@ -193,14 +239,14 @@ struct FlexData {
         JsonDocument d;
         d.set(value);
         bool done = false;
+        bool ok   = false;
         visit(self(), [&](const char* n, auto& ref) {
-            using M = std::decay_t<decltype(ref)>;
             if (!done && name == n) {
-                ref  = d.template as<M>();
                 done = true;
+                ok   = assign(n, ref, d.template as<JsonVariantConst>());
             }
         });
-        return done;
+        return done && ok;
     }
     std::string get_field(std::string_view name) const {
         std::string out = "null";
@@ -241,6 +287,25 @@ struct FlexData {
 private:
     Derived&       self() { return static_cast<Derived&>(*this); }
     const Derived& self() const { return static_cast<const Derived&>(*this); }
+
+    // type-matched assignment: is<M>() before as<M>() (integers: JSON integer in M's range;
+    // float/double: any number; string: string only; nested struct: object; vector: array)
+    template <typename M>
+    static bool assign(const char* n, M& ref, JsonVariantConst x) {
+        if (x.template is<M>()) {
+            ref = x.template as<M>();
+            return true;
+        }
+        if (flex_error_handler) {
+            const std::string_view t = flex_detail::type_name<Derived>();
+            char                   msg[96];
+            std::snprintf(msg, sizeof(msg), "! %.*s.%s: expected %s, got %s", int(t.size()), t.data(), n,
+                          flex_detail::expected_kind<M>(),
+                          flex_detail::json_kind(x, std::is_integral_v<M> && !std::is_same_v<M, bool>));
+            flex_error_handler(msg);
+        }
+        return false;
+    }
 
     template <typename Self, typename Fn>
     static void visit(Self&& s, Fn&& fn) {

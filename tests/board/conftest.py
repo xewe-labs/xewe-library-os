@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from xewe.serialio import BOOT_READY, Console, wait_for_banner
+from xewe.board.serialio import BOOT_READY, Console, wait_for_banner
 
 BOOT_TIMEOUT = 90.0
 QUIET = 0.6
@@ -141,7 +141,7 @@ def compiled(xewe):
     Space-separated ``KEY=VALUE`` items, e.g. ``XEWE_HWTEST_DEFINES=XEWE_TESTING=1`` builds the
     ``$test`` hooks in (test_hooks_*.py). Unset: identical to the plugin's fixture.
     """
-    from xewe import build
+    from xewe.build import compile as build
     from xewe.report import XeweError
 
     p = xewe.project()
