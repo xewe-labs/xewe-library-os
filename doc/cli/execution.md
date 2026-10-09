@@ -58,8 +58,9 @@ if (!xewe_cli.execute("led", "set", args)) { /* no such command */ }
 
 A command matches when its `function` is non-empty, its name matches case-insensitively, **and
 `args.size() == command.arg_count`**. Because the argument count participates in matching, two
-commands sharing a name but differing in arity act as an overload set here — unlike the parsed
-path, which matches on name alone and takes the first hit.
+commands sharing a name but differing in arity act as an overload set here — like the parsed
+path, which applies the same rule (name and count), falling back to the first same-named command
+only to report an argument-count mismatch.
 
 Returns `false` when the group is unknown or nothing matched.
 
@@ -67,19 +68,25 @@ Returns `false` when the group is unknown or nothing matched.
 
 A handler receives `xewe::span<const std::string>` over a vector owned by `execute`.
 
-**The span does not outlive the call.** Copy anything you intend to keep:
+**The span does not outlive the call.** Copy anything you intend to keep.
 
 ```cpp
 {"name", "Set the name", "$dev name \"Kitchen\"", 1,
  [this](xewe::span<const std::string> args) { stored_name = args[0]; }}   // copy, not a view
 ```
 
+`execute` copies the input line before tokenizing, so a handler may modify the caller's buffer,
+call `execute` again (nested), or add/remove commands and groups, including its own: the handler
+runs from a copy of its `std::function`, so removing its own group does not destroy it mid-call.
+
 ## Tokenizer
 
 The `$` is stripped, then the rest is split on whitespace:
 
 * A token starting with `"` runs to the closing `"` and may contain spaces.
-* Inside quotes, `\` escapes the next character. A trailing dangling `\` is emitted literally.
+* Inside quotes, `\` escapes the next character, including `"`, so `"abc\"` is an unterminated
+  quote. Outside quotes `\` is literal: `a\ b` is the two tokens `a\` and `b`.
+* A closing quote ends the token: `"a"b` is the two tokens `a` and `b`.
 * **Quoting only applies when `"` is the first character of a token** — `ab"cd"` is one literal
   token including the quotes.
 * An unterminated quote prints `Error: Unterminated quote in command.` and **aborts the whole

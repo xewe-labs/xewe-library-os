@@ -28,16 +28,27 @@ used when it is non-empty.
 nvs.set_error_handler([&](std::string_view m) { serial.print(m); });
 ```
 
-**Only two conditions ever reach the handler:** a name longer than 15 characters, and a name
-containing an embedded NUL. Failing to open a namespace, a failed `nvs_set_*` and a failed commit
-are **silent** — they surface only as the `false` or default-value return.
+**What reaches the handler:** an invalid name (longer than 15 characters, or containing an
+embedded NUL), a failed `nvs_flash_init()` (reported once until init succeeds again), the automatic
+partition erase (see Notes), a failed namespace open (except a read-only open of a namespace that
+was never written, which is the normal "missing" case), a failed `nvs_set_*`/erase, and a failed
+commit. Read failures (missing key, wrong type) stay **silent**: `read` returns the default.
 
-Messages, verbatim:
+Messages, verbatim (`<ESP_ERR>` is `esp_err_to_name()` of the code):
 
 ```
 Nvs: ERROR name '<name>' too long (<n> chars > 15 max); rejected
 Nvs: ERROR name contains an embedded NUL; rejected
+Nvs: ERROR nvs_flash_init failed; all reads return defaults, writes fail (<ESP_ERR>)
+Nvs: ERROR partition unusable, erased all NVS data (<ESP_ERR>)
+Nvs: ERROR partition erase failed (<ESP_ERR>)
+Nvs: ERROR open namespace failed '<ns>' (<ESP_ERR>)
+Nvs: ERROR write failed (<ESP_ERR>)        e.g. ESP_ERR_NVS_NOT_ENOUGH_SPACE, ESP_ERR_NVS_VALUE_TOO_LONG
+Nvs: ERROR commit failed (<ESP_ERR>)
 ```
+
+`read<T>` cannot tell "missing" from "stored with another type" (signedness and width are part of
+the type; `bool` and `uint8_t` share one) or from "NVS unavailable": all return `default_value`.
 
 ## write
 
@@ -145,7 +156,7 @@ libraries and to the ESP-IDF itself (Wi-Fi calibration data, for example). In Xe
   returns `ESP_ERR_NVS_NO_FREE_PAGES` or `ESP_ERR_NVS_NEW_VERSION_FOUND`, the library
   **deinitialises and erases the whole NVS partition**, then initialises again. That recovers a
   full or format-changed partition automatically, at the cost of every stored value — a device
-  that fills NVS silently loses its settings on the next boot.
+  that fills NVS loses its settings on the next boot; the erase is reported to the error handler.
 * **The 15-character limit applies to namespaces as well as keys.** An over-long name is rejected
   before any flash access: `write` returns `false`, `read` returns the default, `read_blob`
   returns empty, and `remove`/`reset_ns` do nothing.

@@ -140,9 +140,10 @@ Writes to `out` and returns `true` only on a clean parse. It trims surrounding w
 **base 10 only**, rejects trailing characters, and range-checks against
 `std::numeric_limits<T>`. Signed `T` goes through `strtoll`, unsigned through `strtoull`.
 
-Because unsigned parsing uses `strtoull`, a negative literal for an unsigned `T` **wraps instead
-of failing** — `parse_int<uint8_t>("-1", out)` is not the rejection you might expect. Guard the
-sign yourself, or use [`xewe::validate`](validator.md) with a `0` lower bound.
+A leading `-` for an unsigned `T` is rejected (`"-1"`, `"-0"`), and a value beyond the 64-bit
+range (`strtoll`/`strtoull` set `ERANGE`) fails instead of saturating. Before 2026-10-08,
+`parse_int<uint64_t>("-1", out)` returned `true` with `UINT64_MAX` and
+`parse_int<long long>("9223372036854775808", out)` returned `true` with `LLONG_MAX`.
 
 ```cpp
 template <typename T, typename = std::enable_if_t<std::is_floating_point<T>::value>>

@@ -25,8 +25,8 @@ compiles without casting the bounds.
 | `T` | What `min`/`max` mean | Parsed with |
 |---|---|---|
 | `std::string` | **string length**, inclusive | no parsing; the view is copied |
-| signed integral | numeric range, inclusive | `std::stoll` |
-| unsigned integral | numeric range, inclusive | `std::stoull` |
+| signed integral | numeric range, inclusive | `xewe::str::parse_int<T>` |
+| unsigned integral | numeric range, inclusive | `xewe::str::parse_int<T>` |
 | `float`, `double` | numeric range, inclusive | `xewe::str::parse_float` |
 | anything else, **including `bool`** | — | compile error |
 
@@ -45,6 +45,9 @@ An unsupported `T` fails with `static_assert`:
 * **Base 10 only.** `std::stoll` accepted `0x`-prefixed forms on its own terms;
   `validate<int>("0x1F", 0, 255)` now returns `std::nullopt`. Surrounding whitespace is still
   trimmed and a leading `+`/`-` is still accepted.
+* **The value must fit `T` itself**, whatever the bounds: `validate<int8_t>("300", 0, 1000)`
+  returns `std::nullopt` (before 2026-10-08 it parsed as `long long` and returned the truncated
+  `44`).
 * **It allocates.** Each call copies the view into a `std::string` before parsing.
 * `min` and `max` are **not** swapped if you pass them inverted — an inverted range simply matches
   nothing and every call returns `std::nullopt`. (The `SerialPort` numeric prompts do swap; this

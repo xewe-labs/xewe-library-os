@@ -27,7 +27,8 @@ bool Nvs::write(std::string_view ns,
     } else if constexpr (std::is_same_v<U, std::string_view>) {
         write_err = nvs_set_str(sh, storage_key.c_str(), std::string(value).c_str());
     } else if constexpr (std::is_convertible_v<U, const char*>) {
-        write_err = nvs_set_str(sh, storage_key.c_str(), value ? static_cast<const char*>(value) : "");
+        const char* str = value;  // arrays (string literals) decay here; avoids -Waddress
+        write_err = nvs_set_str(sh, storage_key.c_str(), str ? str : "");
     } else if constexpr (std::is_same_v<U, bool>) {
         write_err = nvs_set_u8(sh, storage_key.c_str(), value ? 1u : 0u);
     } else if constexpr (std::is_integral_v<U> && std::is_signed_v<U>) {

@@ -3,6 +3,7 @@
 // xewe-os-core/src/XeWeCore/FlexData.h
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -122,7 +123,9 @@ void blob_read(BlobReader& r,
     uint32_t n = 0;
     if (!r.take(&n, sizeof(n))) return;
     v.clear();
-    v.reserve(n);
+    // n comes from stored bytes: never reserve more elements than bytes remain (a corrupt
+    // count would otherwise allocate gigabytes and abort); the loop stops once r.ok drops
+    v.reserve(std::min<size_t>(n, static_cast<size_t>(r.end - r.p)));
     for (uint32_t i = 0; i < n && r.ok; ++i) {
         T x{};
         blob_read(r, x);

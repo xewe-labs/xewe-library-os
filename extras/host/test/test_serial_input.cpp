@@ -72,19 +72,65 @@ TEST(serial_input_queue_overflow_drops_newest) {
     CHECK(!f.serial.has_line());
 }
 
-TEST(serial_input_long_line_split) {
+TEST(serial_input_long_line_dropped_whole) {
     InputFixture f;
     std::string line;
     for (int i = 0; i < 300; ++i) line.push_back(static_cast<char>('a' + i % 26));
     Serial.inject(line + "\n");
     f.serial.loop();
-    const std::string a = f.serial.read_line();
-    const std::string b = f.serial.read_line();
-    CHECK_EQ(a.size(), std::size_t{254});
-    CHECK_EQ(a, line.substr(0, 254));
-    CHECK_EQ(b, line.substr(254));  // the 255th character starts the next line
+    CHECK(!f.serial.has_line());  // nothing of an over-long line is readable
+    std::string out = Serial.take();
+    CHECK_EQ(count(out, "! Input line too long (max 254 chars): dropped"), std::size_t{1});
+    CHECK(!contains(out, "overflow"));
+    Serial.inject("after\n");  // the next normal line works
+    f.serial.loop();
+    CHECK_EQ(f.serial.read_line(), std::string("after"));
     CHECK(!f.serial.has_line());
-    CHECK(!contains(Serial.take(), "overflow"));
+    CHECK(!contains(Serial.take(), "too long"));
+}
+
+TEST(serial_input_long_line_dropped_across_loops) {
+    InputFixture f;
+    Serial.inject("ok1\n" + std::string(200, 'x'));
+    f.serial.loop();
+    Serial.inject(std::string(200, 'y'));  // crosses the limit in a later pass
+    f.serial.loop();
+    Serial.inject(std::string(100, 'z') + "\r\nok2\n");
+    f.serial.loop();
+    CHECK_EQ(f.serial.read_line(), std::string("ok1"));
+    CHECK_EQ(f.serial.read_line(), std::string("ok2"));
+    CHECK(!f.serial.has_line());
+    CHECK_EQ(count(Serial.take(), "too long"), std::size_t{1});
+}
+
+TEST(serial_input_254_char_line_kept) {
+    InputFixture f;
+    std::string line;
+    for (int i = 0; i < 254; ++i) line.push_back(static_cast<char>('a' + i % 26));
+    Serial.inject(line + "\n");
+    f.serial.loop();
+    CHECK_EQ(f.serial.read_line(), line);
+    CHECK(!f.serial.has_line());
+    CHECK(!contains(Serial.take(), "too long"));
+}
+
+TEST(serial_input_255_char_line_dropped) {
+    InputFixture f;
+    Serial.inject(std::string(255, 'q') + "\n");
+    f.serial.loop();
+    CHECK(!f.serial.has_line());
+    CHECK_EQ(count(Serial.take(), "too long"), std::size_t{1});
+}
+
+TEST(serial_input_clear_input_resets_overflow) {
+    InputFixture f;
+    Serial.inject(std::string(300, 'q'));  // over-long, no newline yet
+    f.serial.loop();
+    f.serial.clear_input();
+    Serial.inject("fresh\n");
+    f.serial.loop();
+    CHECK_EQ(f.serial.read_line(), std::string("fresh"));
+    CHECK(!contains(Serial.take(), "too long"));
 }
 
 TEST(serial_input_clear_input) {

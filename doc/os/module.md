@@ -46,8 +46,13 @@ public:
 };
 ```
 
-**The `id` is capped at 15 characters** because it is used as an NVS namespace; a longer one is
-rejected by XeWeCore Nvs and the module silently fails to persist anything.
+**The `id` is checked at registration.** An id longer than 15 characters (the NVS namespace limit),
+empty, containing whitespace, equal to `help`, or already registered is refused by
+`Os::register_module`: the module is not registered (it never begins or loops, so it cannot re-run
+first boot on every boot), gets no CLI group, and `register_command` returns `false`. The error,
+e.g. `! Module id 'averyverylongmodule' is longer than 15 characters (NVS namespace limit): module
+not registered`, is printed by `Os::begin()` (modules are constructed before Serial is up).
+`register_command` reports a rejected command name the same way.
 
 ## Copy and move
 
@@ -142,7 +147,11 @@ requirement is disabled. Otherwise it persists `is_enabled` and restarts.
 when `can_be_disabled` is `false`. Then:
 
 * When `verbose`, it prints a `[WARNING] / Disabling <name> / Will reset it` header — listing the
-  dependents that will go with it — and asks `OK?`. A "no" prints `Aborted` and returns.
+  dependents that will go with it — and asks `OK?` with a **bounded** prompt: two attempts of
+  15 s, default "no" (`get_yn("OK?", 2, 15000, false, …)`; a typo or a timeout re-prompts once,
+  worst stall 30 s). A "no" prints `Aborted` and returns; a second timeout or invalid answer prints
+  `! No answer: disable cancelled`, then `Aborted`, and returns — so a `disable` from the scheduler, a button or the web
+  UI cannot freeze an unattended device. See [prompts](../serial/prompts.md).
   **When `verbose` is `false` there is no confirmation at all.**
 * It cascades `disable(false, false)` to **every dependent module**, without prompting them.
 * It ends by calling `reset(verbose, do_restart, /*keep_enabled=*/false)`.

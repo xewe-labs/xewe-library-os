@@ -4,6 +4,10 @@
 
 #include "XeWeOs.h"
 
+#include <cstdarg>
+#include <cstdio>
+#include "Testing.h"
+
 
 namespace xewe {
 
@@ -21,6 +25,14 @@ void Os::begin() {
 
     if (config.print_banner) print_banner();
 
+    begun = true;
+    if (!pending_errors.empty()) serial.print(pending_errors);
+    pending_errors = {};
+
+#ifdef XEWE_TESTING
+    testing::register_commands(*this);
+#endif
+
     const bool init_setup_flag = !nvs.read<bool>("root", "init_setup_flag");
 
     for (Module* module : modules) {
@@ -29,8 +41,10 @@ void Os::begin() {
 
     if (init_setup_flag) {
         serial.print_header("Initial Setup Complete");
-        nvs.write<bool>("root", "init_setup_flag", true);
-        system.restart();
+        // restart only if the flag stuck: with broken NVS the flag would read false on every boot
+        // and the device would boot-loop; stay up instead so it is reachable over the CLI
+        if (nvs.write<bool>("root", "init_setup_flag", true)) system.restart();
+        else serial.print("! NVS write failed: init_setup_flag not saved, not restarting");
     }
 
     serial.print_header("System Setup Complete");
@@ -47,10 +61,31 @@ void Os::loop() {
 }
 
 bool Os::register_module(Module& module) {
-    if (get_module(module.get_id()) != nullptr) return false;
+    const std::string_view id  = module.get_id();
+    const char*            why = Cli::name_error(id, true);
+    // Cli group ids are case-insensitive: "Foo" would merge into the group of "foo"
+    if (!why && (get_module(id) || (module.has_cli_cmds() && cli.get_group(id)))) why = "is already registered";
+    if (why) {
+        report_error("! Module id '%.*s' %s: module not registered", int(id.size()), id.data(), why);
+        return false;
+    }
 
     modules.push_back(&module);
     return true;
+}
+
+void Os::report_error(const char* fmt, ...) {
+    char    message[128];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(message, sizeof(message), fmt, ap);
+    va_end(ap);
+    if (begun) {
+        serial.print(message);
+        return;
+    }
+    if (!pending_errors.empty()) pending_errors += '\n';
+    pending_errors += message;
 }
 
 Module* Os::get_module(std::string_view id) const {
@@ -301,7 +336,10 @@ void System::reset(const bool verbose,
 
     if (verbose) {
         os.serial.print_header("[WARNING]\nResetting System\nWill reset all modules");
-        disable_confirmed = os.serial.get_yn("OK?");
+        // bounded like Module::disable: two attempts of 15 s, anything but a clear "yes" cancels
+        bool answered     = false;
+        disable_confirmed = os.serial.get_yn("OK?", 2, 15000, false, answered);
+        if (!answered) os.serial.print("! No answer: reset cancelled");
     }
 
     if (!disable_confirmed) {

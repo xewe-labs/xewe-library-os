@@ -8,7 +8,7 @@ file is silent: never publish, never tag or push, never commit unasked, never fl
 XeWeCore 2.0.0 is the merge of XeWeUtils, XeWeSerial, XeWeCli, XeWeNvs and XeWeOS. Behaviour is
 unchanged from those 1.0.0 libraries except that the default `OsConfig::url` printed in the boot
 header now points to `https://github.com/xewe-labs/xewe-os-core`; otherwise only names, includes
-and the layout moved. The rules below
+and the layout moved. Changes after 2.0.0 are listed in [`../CHANGELOG.md`](../CHANGELOG.md). The rules below
 are theirs, kept per component, with the ones the merge made obsolete rewritten and marked.
 
 ## Layout
@@ -58,12 +58,19 @@ are theirs, kept per component, with the ones the merge made obsolete rewritten 
 * **Prompt semantics are load-bearing.** `retry_count == 0` means infinite and `timeout_ms == 0`
   means no timeout. Modules across the organization call `get_yn()` and `get_string()` with no
   retry arguments and rely on the call not returning until it is answered. Changing either default
-  silently changes every first-boot setup flow.
+  silently changes every first-boot setup flow. The core's own confirmations are the exception:
+  `Module::disable` and `System::reset` pass `get_yn("OK?", 2, 15000, false, answered)` so a stray
+  command cannot freeze `Os::loop` (worst case 30 s, then cancel). Keep them bounded, and keep
+  `doc/serial/prompts.md` and the hardware tests in step if you change the numbers.
 * **`get_core` sets `success_sink` on every exit path.** A new prompt type must go through it, or
   callers lose the only signal that distinguishes a default from an answer.
-* **The 255-byte `INPUT_BUFFER_SIZE` is documented behaviour**, including the silent split of a
-  longer line. Growing it is fine; changing `get_string`'s `max_length == 0` fallback, which
-  resolves to `INPUT_BUFFER_SIZE - 1`, is a behaviour change to announce.
+* **The 255-byte `INPUT_BUFFER_SIZE` is documented behaviour** (254 usable characters per line),
+  and so is the 4-line queue (`INPUT_QUEUE_LINES`: a fifth completed line is dropped with
+  `! Input overflow: line dropped`). A line longer than 254 characters is **dropped whole** with
+  one `! Input line too long (max 254 chars): dropped` notice; nothing of it is queued or executed
+  (it used to be split, and the tail ran as a command). Never reintroduce the split. Growing the
+  buffer is fine; changing `get_string`'s `max_length == 0` fallback, which resolves to
+  `INPUT_BUFFER_SIZE - 1`, is a behaviour change to announce.
 * **Table cells are `std::string_view`.** Do not add an overload that stores them, and do not
   "fix" a caller by passing a temporary — the lifetime rule is the API.
 * **Output is CRLF** (`xewe::str::kCRLF`) everywhere. Terminals on the other end assume it.
@@ -94,7 +101,9 @@ are theirs, kept per component, with the ones the merge made obsolete rewritten 
 * **Argument count is checked before the handler runs.** Handlers index `args[0]` without
   bounds-checking because of that guarantee.
 * **`add_group` on an existing id must keep its commands.** Modules rely on it when a group is
-  touched twice.
+  touched twice. Module ids are checked earlier: `Os::register_module` refuses a duplicate id
+  (case-insensitive), so two modules no longer merge into one group. Names go through
+  `Cli::name_error`; keep `add_command` and `register_module` on that one helper.
 
 ## Nvs and FlexData (`src/XeWeCore/Nvs.{h,cpp,tpp}`, `FlexData.h`)
 
@@ -117,9 +126,11 @@ Everything here persists across reboots and survives a reflash. Take that seriou
 * **The 15-character `MAX_KEY_LEN` applies to namespaces as well as keys.** A module's `id` is its
   namespace, so raising or lowering this changes what module ids are legal across the
   organization.
-* **Only name validation reports errors.** That is deliberate, not an oversight: `read` returning
-  a default for a missing key is the normal path, and reporting it would flood the console on
-  every boot. Do not add error reporting to the open/set/commit paths without a decision.
+* **Read misses stay silent; real NVS failures are reported.** `read` returning a default for a
+  missing key (or a read-only open of a never-written namespace) is the normal path, and reporting
+  it would flood the console on every boot. Name errors, `nvs_flash_init` failures (once), the
+  automatic partition erase, and open/set/commit failures go to the error handler, verbatim as in
+  [`nvs/nvs.md`](nvs/nvs.md). Do not add reporting to the read-miss path without a decision.
 * **`float`/`double` are stored as blobs.** Changing them to a different encoding makes every
   stored float on every device unreadable.
 * `std::string_view` and `const char*` are deliberately write-only — there is nowhere to return a
@@ -150,8 +161,10 @@ The **core only**. It knows no concrete modules, and it must stay that way.
   factory reset.
 * `System::reset`'s `disable_confirmed` starts `false` on purpose, so a programmatic call always
   aborts. Do not "fix" that to `true`.
-* **A module `id` is the CLI group *and* the NVS namespace**, so it is capped at 15 characters.
-  Changing how the id is used changes where every device's stored data lives.
+* **A module `id` is the CLI group *and* the NVS namespace**, so it is capped at 15 characters;
+  `Os::register_module` enforces this (and refuses empty, whitespace, `help` and duplicate ids),
+  reporting through `Os::report_error`. Changing how the id is used changes where every device's
+  stored data lives.
 * **The NVS keys `is_enabled`, `not_first_boot`, `init_complete`, `root/init_setup_flag` and
   `system/device_name` are the on-device state format.** Renaming one strands the state on every
   deployed device. Devices flashed with XeWeOS 1.0.0 keep their data under 2.0.0.
@@ -175,6 +188,34 @@ The **core only**. It knows no concrete modules, and it must stay that way.
 * **Keep `extras/ModuleTemplate` in step.** It is what module authors copy; a new hook or changed
   signature has to appear there too.
 
+## Test hooks (XEWE_TESTING)
+
+* **What:** `src/XeWeCore/Testing.{h,cpp}` add a `$test` CLI group (NVS, FlexData, parser,
+  prompt, heap and echo commands, one `key=value` line per reply) that `extras/hwtest` drives.
+  `Os::begin()` registers it after the banner, before the modules begin.
+* **Build with the define:** through the tools, `xewe build --chip s3 --define XEWE_TESTING=1`
+  then `xewe flash --no-build` (a plain `xewe flash` rebuilds without it; `Testing.h` picks the
+  define up from the generated `<XeWeBuildInfo.h>`). With plain arduino-cli:
+  `--build-property compiler.cpp.extra_flags=-DXEWE_TESTING=1`.
+* **Rule: everything hook-related stays inside `#ifdef XEWE_TESTING`**, including the call site
+  in `XeWeOs.cpp`. A build without the define must get zero bytes from it: `Testing.cpp.o` empty
+  and no `$test` string in the binary. Check that when you add a hook. No crash, abort or
+  watchdog hooks; namespaces a hook may write or erase must start with `xt`.
+
+## Hardware tests (extras/hwtest)
+
+* pytest files for a real board, run through the `xewe-os-tools` pytest plugin from an xewe
+  project (the phase-2 harness), never on their own. Commands are in
+  [`../extras/hwtest/README.md`](../extras/hwtest/README.md): pass the files after `--`, add
+  `--deselect=build/xewe-os-modules`, take the board lock (`flock <project>/.board.lock`), and set
+  `XEWE_HWTEST_DEFINES=XEWE_TESTING=1` for the `test_hooks_*` files.
+* **Credentials:** provisioning reads Wi-Fi and device credentials from the harness's dotenv file
+  through the tools. Agents never open, print or copy that file, or any key file; let the tools
+  read it.
+* **Destructive tests are opt-in:** `test_recovery_nvs_wipe.py` erases NVS (`$system reset`) and
+  re-provisions, and runs only with `XEWE_HWTEST_DESTRUCTIVE=1`. Do not set it unless the human
+  asked for that run. The org rule still applies: agents do not flash a board unasked.
+
 ## When changing this library
 
 * Source files start with the SPDX header from
@@ -186,6 +227,6 @@ The **core only**. It knows no concrete modules, and it must stay that way.
 * Check your work without publishing anything:
 
   ```bash
-  extras/host/run.sh                     # host unit tests: Utils, Serial, Cli
+  extras/host/run.sh                     # host unit tests: Utils, Serial, Cli, Nvs (shim), FlexData
   # board builds: compile every example for esp32c3 / esp32c6 / esp32s3
   ```

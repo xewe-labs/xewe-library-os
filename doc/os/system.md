@@ -123,7 +123,10 @@ void reset(const bool verbose = false, const bool do_restart = true,
 
 A **factory reset**:
 
-1. When `verbose`, prints `[WARNING] / Resetting System / Will reset all modules` and asks `OK?`.
+1. When `verbose`, prints `[WARNING] / Resetting System / Will reset all modules` and asks `OK?`
+   with a bounded prompt (two attempts of 15 s, default "no"; a typo or a timeout re-prompts once);
+   a second timeout or invalid answer prints `! No answer: reset cancelled`, then `Aborted`, and
+   nothing is reset.
 2. Calls `reset(true, false, false)` on every other registered module — wiping each namespace
    without rebooting between them.
 3. Calls `nvs.erase_all()`, which wipes the **entire NVS partition** — including `root/init_setup_flag`,

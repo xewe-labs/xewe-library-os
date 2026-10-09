@@ -56,9 +56,11 @@ this first, so a stray keystroke typed before the question does not answer it.
 ## Notes
 
 * **A line holds 255 bytes** (`INPUT_BUFFER_SIZE`), 254 usable. When a 255th character arrives,
-  the first 254 are queued as a complete line and that character starts the next line: a longer
-  line is **silently split into several lines**, with no error and no marker. Anything accepting
-  long input — a Wi-Fi password, a URL, a JSON blob — must account for that.
+  the line is marked as overflowed and every further byte is discarded up to the newline; then
+  the **whole line is dropped** and `! Input line too long (max 254 chars): dropped` is printed
+  once. Nothing of an over-long line is queued or executed, and the next line starts clean
+  (`clear_input()` also clears the overflow mark). Anything accepting long input — a Wi-Fi
+  password, a URL, a JSON blob — must stay within 254 characters per line.
 * **Up to four completed lines are queued** (`INPUT_QUEUE_LINES`). If a line completes while
   four are already waiting, the **newest** line is dropped, the queued ones are kept, and
   `! Input overflow: line dropped` is printed once per dropped line. The queue costs about 1 KB of

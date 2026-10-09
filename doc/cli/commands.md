@@ -91,13 +91,30 @@ bool add_command(std::string_view group_id, Command command);
 Appends a command to a group. Returns `false` — and adds nothing — when:
 
 * the group does not exist,
-* `command.name` is empty, or
+* `command.name` is empty or contains whitespace (the tokenizer splits on it, so it could never be
+  typed), or
 * `command.function` is empty.
 
-**Duplicate command names are not rejected.** Two commands with the same name coexist, and the two
-[`execute`](execution.md) overloads then behave differently: the parsed path takes the first name
-match, while the three-argument overload also matches on `arg_count`. That makes same-name,
-different-arity commands reachable from code but not from typed input.
+Through [`Module::register_command`](../os/module.md) a rejected command is also reported:
+`! $<id> command '<name>' contains whitespace: not registered`.
+
+**Duplicate command names are not rejected.** Two commands with the same name coexist and act as
+an overload set on `arg_count`: both [`execute`](execution.md) overloads pick the command whose
+name **and** argument count match. When no count matches, the parsed path reports the mismatch
+against the first command of that name. Two commands with the same name and the same count: the
+first one registered wins and the second is unreachable.
+
+**Module ids are checked before their group is created.** `Os::register_module` refuses a module
+whose id is empty, contains whitespace, equals `help` (`$help` is intercepted), is longer than 15
+characters (NVS namespace limit), or is already registered (also case-insensitively against an
+existing group, since group ids are case-insensitive). It reports
+`! Module id '<id>' is already registered: module not registered` (or the other reason) and the
+module gets no group and no commands: a duplicate no longer merges into the first module's group.
+The checks are `Cli::name_error(name, is_module_id)`.
+
+`add_group` itself does not validate: called directly, it still merges on an existing id, and a
+group id of `help` or one containing whitespace is registered but reachable only through the direct
+`execute` overload.
 
 Commands are stored in registration order, which is the order `$help` lists them in.
 

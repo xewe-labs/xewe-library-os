@@ -53,6 +53,12 @@ public:
     const std::map<std::string, CommandGroup>&
                              get_groups         ()                               const;
 
+    // why `name` cannot be registered (nullptr if it can): empty or contains whitespace (the
+    // tokenizer splits on it). A module id is also a group id and an NVS namespace: `help` is
+    // reserved and more than 15 characters is rejected. Used by add_command and Os::register_module.
+    static const char*       name_error         (std::string_view name,
+                                                 bool             is_module_id);
+
     // execution
     void                     execute            (std::string_view input_line)    const;
     bool                     execute            (std::string_view             group_id,

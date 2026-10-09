@@ -35,10 +35,21 @@ CommandGroup& Cli::add_group(std::string_view id,
 bool Cli::add_command(std::string_view group_id,
                                   Command command) {
     auto it = groups.find(lower_copy(trim_copy(group_id)));
-    if (it == groups.end() || command.name.empty() || !command.function) return false;
+    if (it == groups.end() || name_error(command.name, false) || !command.function) return false;
 
     it->second.commands.push_back(std::move(command));
     return true;
+}
+
+const char* Cli::name_error(std::string_view name, bool is_module_id) {
+    if (name.empty()) return "is empty";
+    for (unsigned char c : name) {
+        if (std::isspace(c)) return "contains whitespace";
+    }
+    if (!is_module_id) return nullptr;
+    if (lower_copy(name) == "help") return "is reserved ($help)";
+    if (name.size() > 15) return "is longer than 15 characters (NVS namespace limit)";
+    return nullptr;
 }
 
 bool Cli::remove_group(std::string_view id) {
@@ -65,7 +76,10 @@ bool Cli::execute(std::string_view group_id,
         if (lower_copy(command.name) != name)   continue;
         if (args.size() != command.arg_count)   continue;
 
-        command.function(args);
+        // call a copy: the command may add/remove commands or groups, which can destroy
+        // the stored std::function while it is still running
+        const command_function_t function = command.function;
+        function(args);
         return true;
     }
     return false;
@@ -129,7 +143,7 @@ void Cli::execute(std::string_view input_line) const {
 
     if (group == nullptr) {
         serial.printf(
-            "Error: Unknown command group '%s'\r\n",
+            "Error: Unknown command group '%s'",
             tokens[0].c_str()
         );
         return;
@@ -139,7 +153,7 @@ void Cli::execute(std::string_view input_line) const {
 
     if (commands.empty()) {
         serial.printf(
-            "Error: Command group '%s' has no CLI commands\r\n",
+            "Error: Command group '%s' has no CLI commands",
             tokens[0].c_str()
         );
         return;
@@ -152,7 +166,7 @@ void Cli::execute(std::string_view input_line) const {
 
     if (tokens[1].empty()) {
         serial.printf(
-            "Error: Missing command in command group '%s'; usage: $%s <command> [args...]\r\n",
+            "Error: Missing command in command group '%s'; usage: $%s <command> [args...]",
             tokens[0].c_str(),
             tokens[0].c_str()
         );
@@ -167,32 +181,38 @@ void Cli::execute(std::string_view input_line) const {
     const std::string command_name    = lower_copy(tokens[1]);
     const Command*    matched_command = nullptr;
 
+    const std::size_t provided_arg_count = tokens.size() - 2;
+
+    // same rule as execute(group, name, args): a command name may be registered more than
+    // once with different arg counts; pick the one whose count matches, else report the first
     for (const Command& command : commands) {
         if (command.name.empty() || !command.function) {
             continue;
         }
 
         if (lower_copy(command.name) == command_name) {
-            matched_command = &command;
-            break;
+            if (matched_command == nullptr) matched_command = &command;
+            if (command.arg_count == provided_arg_count) {
+                matched_command = &command;
+                break;
+            }
         }
     }
 
     if (matched_command == nullptr) {
         serial.printf(
-            "Error: Unknown command '%s' in command group '%s'\r\n",
+            "Error: Unknown command '%s' in command group '%s'",
             tokens[1].c_str(),
             tokens[0].c_str()
         );
         return;
     }
 
-    const std::size_t provided_arg_count = tokens.size() - 2;
     const std::size_t expected_arg_count = matched_command->arg_count;
 
     if (provided_arg_count != expected_arg_count) {
         serial.printf(
-            "Error: Argument count mismatch for '$%s %s'; expected %u, got %u\r\n",
+            "Error: Argument count mismatch for '$%s %s'; expected %u, got %u",
             tokens[0].c_str(),
             tokens[1].c_str(),
             static_cast<unsigned>(expected_arg_count),
@@ -201,7 +221,7 @@ void Cli::execute(std::string_view input_line) const {
 
         if (!matched_command->sample_usage.empty()) {
             serial.printf(
-                "Usage: %s\r\n",
+                "Usage: %s",
                 std::string(matched_command->sample_usage).c_str()
             );
         }
@@ -216,7 +236,9 @@ void Cli::execute(std::string_view input_line) const {
         args.push_back(tokens[i]);
     }
 
-    matched_command->function(xewe::span<const std::string>(args.data(), args.size()));
+    // call a copy (see execute(group, name, args)); `commands` may be invalid afterwards
+    const command_function_t function = matched_command->function;
+    function(xewe::span<const std::string>(args.data(), args.size()));
 }
 
 void Cli::print_help(std::string_view group_id) const {
@@ -231,7 +253,7 @@ void Cli::print_help(std::string_view group_id) const {
 
     if (group == nullptr) {
         serial.printf(
-            "Error: Unknown command group '%s'\r\n",
+            "Error: Unknown command group '%s'",
             id.c_str()
         );
         return;
@@ -241,7 +263,7 @@ void Cli::print_help(std::string_view group_id) const {
 
     if (commands.empty()) {
         serial.printf(
-            "Error: Command group '%s' has no CLI commands\r\n",
+            "Error: Command group '%s' has no CLI commands",
             id.c_str()
         );
         return;

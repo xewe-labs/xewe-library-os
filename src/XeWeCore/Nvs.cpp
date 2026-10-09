@@ -103,17 +103,27 @@ bool Nvs::ensure_ready() {
     esp_err_t err = nvs_flash_init();
 
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        // the standard ESP-IDF recovery wipes every namespace (Wi-Fi credentials included): say so
+        report_esp_error("partition unusable, erased all NVS data", {}, err);
         (void)nvs_flash_deinit();
         const esp_err_t erase_err = nvs_flash_erase();
-        if (erase_err != ESP_OK) return false;
+        if (erase_err != ESP_OK) {
+            report_esp_error("partition erase failed", {}, erase_err);
+            return false;
+        }
         err = nvs_flash_init();
     }
 
     if (err == ESP_OK) {
-        m_nvs_ready = true;
+        m_nvs_ready     = true;
+        m_init_reported = false;
         return true;
     }
 
+    if (!m_init_reported) {
+        m_init_reported = true;
+        report_esp_error("nvs_flash_init failed; all reads return defaults, writes fail", {}, err);
+    }
     return false;
 }
 
@@ -128,12 +138,17 @@ esp_err_t Nvs::open_handle(std::string_view ns,
     if (namespace_name.empty()) return ESP_ERR_INVALID_ARG;
 
     const esp_err_t err = nvs_open(namespace_name.c_str(), mode, &scoped.handle);
+    // a read-only open of a namespace that was never written is the normal "missing" case
+    if (err != ESP_OK && !(mode == NVS_READONLY && err == ESP_ERR_NVS_NOT_FOUND)) {
+        report_esp_error("open namespace failed", namespace_name, err);
+    }
     return err;
 }
 
 bool Nvs::commit_and_close(ScopedHandle& scoped,
                            esp_err_t op_err) {
     if (op_err != ESP_OK) {
+        report_esp_error("write failed", {}, op_err);
         scoped.close();
         return false;
     }
@@ -141,7 +156,11 @@ bool Nvs::commit_and_close(ScopedHandle& scoped,
     const esp_err_t commit_err = nvs_commit(scoped);
     scoped.close();
 
-    return commit_err == ESP_OK;
+    if (commit_err != ESP_OK) {
+        report_esp_error("commit failed", {}, commit_err);
+        return false;
+    }
+    return true;
 }
 
 std::string Nvs::sanitize_name(std::string_view name) const {
@@ -175,6 +194,19 @@ void Nvs::report_error(std::string_view message) const {
         return;
     }
     ESP_LOGE("XeWeNvs", "%.*s", static_cast<int>(message.size()), message.data());
+}
+
+void Nvs::report_esp_error(const char*      what,
+                           std::string_view name,
+                           esp_err_t        err) const {
+    char msg[128];
+    if (name.empty()) {
+        snprintf(msg, sizeof(msg), "Nvs: ERROR %s (%s)", what, esp_err_to_name(err));
+    } else {
+        snprintf(msg, sizeof(msg), "Nvs: ERROR %s '%.*s' (%s)", what,
+                 static_cast<int>(name.size()), name.data(), esp_err_to_name(err));
+    }
+    report_error(msg);
 }
 
 } // namespace xewe

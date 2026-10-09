@@ -29,14 +29,16 @@ std::optional<T> validate(std::string_view value, LimitT min, LimitT max) {
         }
     } else if constexpr (std::is_integral_v<U> && !std::is_same_v<U, bool>) {
         // For integers, min and max denote the numeric range bounds
+        // parse as U itself, so a value outside U's range fails instead of being truncated
+        // when the bounds are wider than the type (e.g. validate<int8_t>("300", 0, 1000))
         if constexpr (std::is_signed_v<U>) {
-            long long res = 0;
+            U res = 0;
             if (xewe::str::parse_int(value, res) &&
                 res >= static_cast<long long>(min) && res <= static_cast<long long>(max)) {
                 return static_cast<T>(res);
             }
         } else if constexpr (std::is_unsigned_v<U>) {
-            unsigned long long res = 0;
+            U res = 0;
             if (xewe::str::parse_int(value, res) &&
                 res >= static_cast<unsigned long long>(min) && res <= static_cast<unsigned long long>(max)) {
                 return static_cast<T>(res);

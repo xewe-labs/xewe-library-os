@@ -25,13 +25,14 @@ namespace host {
 inline unsigned long now_ms = 0;                        // settable fake clock
 inline void          set_millis (unsigned long ms) { now_ms = ms; }
 inline void          advance    (unsigned long ms) { now_ms += ms; }
+inline void        (*on_yield)  ()               = nullptr; // test hook: lets busy-wait loops see time pass
 } // namespace host
 
 inline unsigned long millis            () { return host::now_ms; }
 inline unsigned long micros            () { return host::now_ms * 1000UL; }
 inline void          delay             (unsigned long ms) { host::now_ms += ms; }
 inline void          delayMicroseconds (unsigned int) {}
-inline void          yield             () {}
+inline void          yield             () { if (host::on_yield) host::on_yield(); }
 inline void          analogWrite       (int, int) {}
 inline void          digitalWrite      (int, int) {}
 inline void          pinMode           (int, int) {}

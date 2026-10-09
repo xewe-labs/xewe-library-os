@@ -50,6 +50,8 @@ public:
 class Os {
     // declared first: `system` registers itself during construction
     std::vector<Module*>        modules;
+    std::string                 pending_errors;   // registration errors raised before begin(), one per line
+    bool                        begun = false;
     OsConfig                    config;
 
 public:
@@ -62,6 +64,9 @@ public:
     void                        loop            ();
 
     bool                        register_module (Module& module);
+    // printf-style; prints the message, or before begin() (static constructors, no Serial yet)
+    // queues it for begin() to print. Truncated at 127 characters.
+    void                        report_error    (const char* fmt, ...);
     Module*                     get_module      (std::string_view id) const;
     const std::vector<Module*>& get_modules     ()                    const;
     const OsConfig&             get_config      ()                    const;

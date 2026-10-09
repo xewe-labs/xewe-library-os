@@ -33,6 +33,10 @@ Always include `<XeWeCore.h>`. The parts work on their own too: `xewe::SerialPor
 
 Modules derive from `xewe::Module`; start from [`extras/ModuleTemplate`](extras/ModuleTemplate).
 
+* **Input queue:** serial input keeps up to four completed lines, and a line over 254 characters is dropped whole.
+* **Bounded confirmations:** `$<module> disable` and `$system reset` ask at most twice, 15 s each, and cancel unless the answer is yes.
+* **Test hooks:** building with `XEWE_TESTING` adds a `$test` command group for the hardware tests and costs nothing otherwise.
+
 ## Examples
 
 `01_Utils`, `02_Serial`, `03_Cli`, `04_Nvs`, `05_Os` in [`examples/`](examples/).
@@ -54,10 +58,8 @@ points to `https://github.com/xewe-labs/xewe-os-core`.
 
 ## Changes
 
-* **2.0.1** — serial input keeps up to four completed lines in a queue instead of one, so lines
-  arriving together are no longer overwritten or corrupted; a line over 254 characters now carries
-  the 255th character into the next line instead of dropping it. No API change. See
-  [`doc/serial/input.md`](doc/serial/input.md).
+Release notes are in [CHANGELOG.md](CHANGELOG.md).
+The 2.0.1 serial input queue and the unreleased hardening changes are listed there.
 
 ## Documentation
 

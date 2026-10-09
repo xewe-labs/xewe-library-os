@@ -48,4 +48,4 @@ headers under `src/XeWeCore/` can be included after it.
 | [utils/lock-guard.md](utils/lock-guard.md) | `xewe::LockGuard` |
 | [utils/debug.md](utils/debug.md) | `DBG_*` macros and `DEBUG_<Class>` flags |
 
-Rules for coding agents: [AGENTS.md](AGENTS.md).
+Rules for coding agents: [AGENTS.md](AGENTS.md). Release notes: [CHANGELOG.md](../CHANGELOG.md).

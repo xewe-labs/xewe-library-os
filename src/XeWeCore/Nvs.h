@@ -76,6 +76,9 @@ private:
 
     struct ScopedHandle {
         nvs_handle_t             handle = 0;
+        ScopedHandle() = default;
+        ScopedHandle(const ScopedHandle&)            = delete;  // a copy would close the handle twice
+        ScopedHandle& operator=(const ScopedHandle&) = delete;
         ~ScopedHandle() { close(); }
              operator nvs_handle_t() const { return handle; }
         void close() {
@@ -87,6 +90,7 @@ private:
     };
 
     bool                         m_nvs_ready      = false;
+    bool                         m_init_reported  = false;   // report a failing nvs_flash_init once
     error_handler_t              m_error_handler;
 
     bool                         ensure_ready     ();
@@ -98,6 +102,9 @@ private:
 
     std::string                  sanitize_name    (std::string_view name)          const;
     void                         report_error     (std::string_view message)       const;
+    void                         report_esp_error (const char*      what,
+                                                   std::string_view name,
+                                                   esp_err_t        err)             const;
 };
 
 } // namespace xewe

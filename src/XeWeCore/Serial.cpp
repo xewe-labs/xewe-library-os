@@ -28,11 +28,21 @@ void SerialPort::loop() {
 
         if (c == '\r') continue;
         if (c == '\n') {
+            if (input_overflowed) {
+                // the whole over-long line is dropped: nothing of it executes
+                input_overflowed = false;
+                input_buffer_pos = 0;
+                this->println_raw("! Input line too long (max 254 chars): dropped");
+                continue;
+            }
             push_line();
             continue;
         }
-        // line full (254 chars): terminate it and carry this character into the next line
-        if (input_buffer_pos >= INPUT_BUFFER_SIZE - 1) push_line();
+        if (input_overflowed) continue;  // discard the rest of an over-long line
+        if (input_buffer_pos >= INPUT_BUFFER_SIZE - 1) {
+            input_overflowed = true;     // 255th character: mark the line, drop it at '\n'
+            continue;
+        }
         input_buffer[input_buffer_pos++] = c;
     }
 }
@@ -682,6 +692,7 @@ void SerialPort::clear_input() {
         yield();
     }
     input_buffer_pos = 0;
+    input_overflowed = false;
     queue_head       = 0;
     queue_count      = 0;
 }

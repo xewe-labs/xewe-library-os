@@ -77,15 +77,20 @@ Call once from `setup()`. In order:
 2. Installs an NVS error handler that prints to the console:
    `nvs.set_error_handler([this](std::string_view m) { serial.print(m); })`. XeWeCore Nvs errors
    therefore appear on the serial port rather than in the ESP log.
-3. Prints the banner, when `config.print_banner`.
+3. Prints the banner, when `config.print_banner`, then any registration errors queued by
+   [`report_error`](#report_error) (rejected module ids or command names).
 4. Reads `init_setup_flag` from the **`root` NVS namespace**. It is unset on the very first boot
    of a device.
 5. Calls `begin()` on every registered module, in registration order.
 6. **On the first boot only:** prints `Initial Setup Complete`, writes `root/init_setup_flag`, and
-   **restarts the device**.
+   **restarts the device** — only if that write succeeded. If NVS cannot be written (init failure,
+   missing or full partition, commit error) it prints
+   `! NVS write failed: init_setup_flag not saved, not restarting` (after the Nvs error itself) and
+   carries on, so a device with broken NVS stays reachable over the CLI instead of boot-looping;
+   module first-boot setup then re-runs on every boot until NVS works.
 7. Prints `System Setup Complete`.
 
-**The first boot of a new device ends in a reboot.** Everything after `os.begin()` in `setup()` is
+**The first boot of a new device ends in a reboot** (when NVS works; see step 6). Everything after `os.begin()` in `setup()` is
 not reached on that boot. Anything with a one-time side effect outside NVS has to tolerate running
 again.
 
@@ -109,11 +114,18 @@ bool register_module(Module& module);
 ```
 
 Called from `Module`'s constructor; a sketch does not call it. Returns `false` and registers
-nothing when a module with the same `id` already exists.
+nothing when the id is already registered, empty, contains whitespace, equals `help` or is longer
+than 15 characters (see [Module](module.md)). The rejection is reported through `report_error` and
+the module gets no CLI group, so it never begins, never loops and adds no commands.
 
-**The module constructor ignores that return value.** A duplicate id therefore leaves a module
-unregistered — it never begins and never loops — while its CLI group still exists. Two modules
-sharing an id is a silent failure; keep ids unique.
+## report_error
+
+```cpp
+void report_error(const char* fmt, ...);
+```
+
+`printf`-style; prints the message (truncated at 127 characters). Before `begin()` (static
+constructors, Serial not up yet) it is queued and printed by `begin()` right after the banner.
 
 ## get_module, get_modules, get_config
 

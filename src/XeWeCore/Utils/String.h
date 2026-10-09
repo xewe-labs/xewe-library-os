@@ -462,16 +462,21 @@ inline bool parse_int(std::string_view s, T& out) {
     std::string tmp(s.substr(start, end - start));
     char*       pEnd = nullptr;
 
+    errno            = 0;
+
     if constexpr (std::is_signed<T>::value) {
         long long v = strtoll(tmp.c_str(), &pEnd, 10);
         if (pEnd == tmp.c_str() || *pEnd != '\0') return false;
+        if (errno == ERANGE) return false;  // beyond long long: strtoll saturates
         if (v < static_cast<long long>(std::numeric_limits<T>::min()) ||
             v > static_cast<long long>(std::numeric_limits<T>::max())) return false;
         out = static_cast<T>(v);
         return true;
     } else {
+        if (tmp[0] == '-') return false;    // strtoull would negate "-1" to the maximum
         unsigned long long v = strtoull(tmp.c_str(), &pEnd, 10);
         if (pEnd == tmp.c_str() || *pEnd != '\0') return false;
+        if (errno == ERANGE) return false;
         if (v > static_cast<unsigned long long>(std::numeric_limits<T>::max())) return false;
         out = static_cast<T>(v);
         return true;

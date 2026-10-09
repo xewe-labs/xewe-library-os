@@ -170,6 +170,7 @@ private:
     static_assert(INPUT_BUFFER_SIZE <= 256 && INPUT_QUEUE_LINES <= 255, "lengths and indices are uint8_t");
     char                         input_buffer[INPUT_BUFFER_SIZE] = {};
     std::size_t                  input_buffer_pos                = 0;
+    bool                         input_overflowed                = false; // in-progress line passed 254 chars
     char                         line_queue[INPUT_QUEUE_LINES][INPUT_BUFFER_SIZE] = {};
     uint8_t                      line_lengths[INPUT_QUEUE_LINES] = {};
     uint8_t                      queue_head                      = 0;    // oldest line

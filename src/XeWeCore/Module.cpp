@@ -23,7 +23,11 @@ Module::Module(Os&               os,
     , can_be_disabled(can_be_disabled)
     , has_cli_commands(has_cli_commands)
     , enabled(true) {
-    os.register_module(*this);
+    if (!os.register_module(*this)) {
+        // rejected (reported by Os): never begins or loops, and adds nothing to another module's group
+        this->has_cli_commands = false;
+        return;
+    }
     if (has_cli_commands) {
         os.cli.add_group(this->id, this->name);
         register_generic_commands();
@@ -139,7 +143,12 @@ void Module::disable(const bool verbose,
                 msg.pop_back();
         }
         os.serial.print_header(msg);
-        disable_confirmed = os.serial.get_yn("OK?");
+        // bounded: a disable issued by the scheduler, a button or the web UI must not freeze an
+        // unattended device. Two attempts of 15 s (a typo re-prompts once); anything but a clear
+        // "yes" cancels. Worst-case stall: 30 s.
+        bool answered     = false;
+        disable_confirmed = os.serial.get_yn("OK?", 2, 15000, false, answered);
+        if (!answered) os.serial.print("! No answer: disable cancelled");
     }
 
     if (!disable_confirmed) {
@@ -219,6 +228,12 @@ std::string_view Module::get_description() const { return description; }
 
 bool Module::register_command(Command command) {
     if (!has_cli_commands) return false;
+    const char* why = Cli::name_error(command.name, false);
+    if (!why && !command.function) why = "has no function";
+    if (why) {
+        os.report_error("! $%s command '%s' %s: not registered", id.c_str(), command.name.c_str(), why);
+        return false;
+    }
     return os.cli.add_command(id, std::move(command));
 }
 

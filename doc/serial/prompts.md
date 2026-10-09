@@ -7,6 +7,21 @@ attempts. Internally they busy-wait, calling `loop()` and `yield()`, so co-opera
 running — but the sketch's own `loop()` does not. Prompts belong in `setup()` and in module setup
 routines, never in a running `loop()`.
 
+**A prompt reachable from a running device must be bounded.** A command can arrive from the
+scheduler, a button or the web UI with nobody at the console, and an unbounded prompt
+(`retry_count = 0` or `timeout_ms = 0`) then stops `Os::loop` — Wi-Fi, web server, scheduler,
+buttons — until someone answers. The core's own confirmations follow this rule:
+
+| Prompt | Call | On timeout or invalid answer |
+|---|---|---|
+| `$<module> disable` → `OK?` (`Module::disable`) | `get_yn("OK?", 2, 15000, false, answered)` | after the 2nd failed attempt: `! No answer: disable cancelled`, `Aborted` |
+| `$system reset` → `OK?` (`System::reset`) | `get_yn("OK?", 2, 15000, false, answered)` | after the 2nd failed attempt: `! No answer: reset cancelled`, `Aborted` |
+
+Two attempts of 15 s each: a timeout (`! Timeout.`) or an invalid answer (`! Please answer 'y' or
+'n'.`) re-prompts once, a second one cancels. Worst-case stall of `Os::loop`: 30 s. An answer typed
+after the second timeout is an ordinary (rejected) command line. Only the first-boot provisioning prompts (enable
+question, device name) stay unbounded — they run in `setup()` and must be answered.
+
 ```cpp
 bool     ok;
 uint32_t period = serial.get_uint32("Blink period in ms?", 50, 10000,
