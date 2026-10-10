@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from xewe.board.serialio import BOOT_READY, BOOT_UNPROVISIONED, Console, ExpectTimeout, wait_for_banner
-from xewe.report import XeweError
+from xewe.report import XeWeError
 
 # ---------------------------------------------------------------- command mix
 # (command, reply regex, timeout s). Read-only or error-path commands only: nothing here writes
@@ -172,11 +172,11 @@ class Soaker:
             return self.c.expect(pattern, timeout)
         except ExpectTimeout:
             return None
-        except XeweError as exc:  # port vanished: the board rebooted
+        except XeWeError as exc:  # port vanished: the board rebooted
             self.res.reboots.append(f"port lost: {exc}")
             try:
                 wait_for_banner(self.c, f"{BOOT_READY}|{BOOT_UNPROVISIONED}", 90, reset=False)
-            except (ExpectTimeout, XeweError):
+            except (ExpectTimeout, XeWeError):
                 pass
             return None
 
@@ -357,10 +357,10 @@ def main(argv: list[str] | None = None) -> int:
         # opening a native-USB S3 resets it: wait for that boot (or force one if it stayed silent)
         try:
             m = wait_for_banner(console, f"{BOOT_READY}|{BOOT_UNPROVISIONED}", a.boot_timeout, reset=False)
-        except (ExpectTimeout, XeweError):
+        except (ExpectTimeout, XeWeError):
             try:
                 m = wait_for_banner(console, f"{BOOT_READY}|{BOOT_UNPROVISIONED}", a.boot_timeout, reset=True)
-            except (ExpectTimeout, XeweError) as exc:
+            except (ExpectTimeout, XeWeError) as exc:
                 print(f"board did not boot: {exc}", file=sys.stderr)
                 return 2
         # native USB: the port reopen after a reset can reset the chip once more; wait that out

@@ -142,13 +142,13 @@ def compiled(xewe):
     ``$test`` hooks in (test_hooks_*.py). Unset: identical to the plugin's fixture.
     """
     from xewe.build import compile as build
-    from xewe.report import XeweError
+    from xewe.report import XeWeError
 
     p = xewe.project()
     try:
         defines = build.parse_defines(os.environ.get(DEFINES_ENV, "").split())
         res = build.build_chip(p, xewe.lock, xewe.chip, defines)
-    except XeweError as exc:
+    except XeWeError as exc:
         pytest.fail(f"build failed for {xewe.chip}: {exc}", pytrace=False)
     if not res.ok or res.binary is None:
         pytest.fail(f"build failed for {xewe.chip}; see {p.rel(p.out_dir(xewe.chip) / 'compile.log')}", pytrace=False)
