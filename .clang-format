@@ -1,0 +1,28 @@
+# .clang-format: XeWe OS C++ style (`xewe format`; clang-format 14 or newer).
+# AI-first: nothing is column-aligned. Runs of alignment whitespace cost tokens, break exact-match
+# edits, and turn a one-line change into a realigned block; here a one-member change diffs by one line.
+---
+Language: Cpp
+BasedOnStyle: LLVM
+IndentWidth: 4
+ContinuationIndentWidth: 4
+AccessModifierOffset: -4
+ColumnLimit: 100
+UseTab: Never
+# no column alignment of any kind
+AlignConsecutiveAssignments: None
+AlignConsecutiveBitFields: None
+AlignConsecutiveDeclarations: None
+AlignConsecutiveMacros: None
+AlignArrayOfStructures: None
+AlignEscapedNewlines: DontAlign
+AlignTrailingComments: false
+AlignOperands: DontAlign
+AlignAfterOpenBracket: DontAlign
+BreakBeforeBraces: Attach
+PointerAlignment: Left
+DerivePointerAlignment: false
+AllowShortFunctionsOnASingleLine: Empty
+# include order matters for Arduino sketches and libraries: never reorder includes
+SortIncludes: false
+...

@@ -12,6 +12,7 @@
 
 #ifdef XEWE_TESTING
 
+#include <cinttypes>
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -285,10 +286,10 @@ void nvs_stress(SerialPort& out, Nvs& nvs, uint32_t n) {
         const int32_t     i = static_cast<int32_t>(k * 7919u) - 1000000;
         const float       f = static_cast<float>(k) * 0.5f - 3.25f;
         const std::string s = "v" + std::to_string(k) + std::string(k % 40, 'z');
-        check(nvs.write<bool>(ns, "b", b) && nvs.read<bool>(ns, "b", !b) == b, str::format("bool k=%u", k));
-        check(nvs.write<int32_t>(ns, "i", i) && nvs.read<int32_t>(ns, "i", i + 1) == i, str::format("i32 k=%u", k));
-        check(nvs.write<float>(ns, "f", f) && nvs.read<float>(ns, "f", f + 1) == f, str::format("float k=%u", k));
-        check(nvs.write<std::string>(ns, "s", s) && nvs.read<std::string>(ns, "s") == s, str::format("str k=%u", k));
+        check(nvs.write<bool>(ns, "b", b) && nvs.read<bool>(ns, "b", !b) == b, str::format("bool k=%" PRIu32, k));
+        check(nvs.write<int32_t>(ns, "i", i) && nvs.read<int32_t>(ns, "i", i + 1) == i, str::format("i32 k=%" PRIu32, k));
+        check(nvs.write<float>(ns, "f", f) && nvs.read<float>(ns, "f", f + 1) == f, str::format("float k=%" PRIu32, k));
+        check(nvs.write<std::string>(ns, "s", s) && nvs.read<std::string>(ns, "s") == s, str::format("str k=%" PRIu32, k));
     }
 
     // overwrite with a different type under the same key: the old typed read must not see it
@@ -324,7 +325,7 @@ void nvs_stress(SerialPort& out, Nvs& nvs, uint32_t n) {
 
     nvs.reset_ns(ns);
     check(nvs.read<int32_t>(ns, k15, -1) == -1, "reset_ns");
-    out.print(str::format("stress n=%u pass=%u fail=%u", n, pass, fail));
+    out.print(str::format("stress n=%" PRIu32 " pass=%" PRIu32 " fail=%" PRIu32, n, pass, fail));
 }
 
 // ---- utils ---------------------------------------------------------------
@@ -531,7 +532,7 @@ void register_commands(Os& os) {
         uint32_t n = 0;
         if (!parse_u32(a[0], 0, 10000, n)) return out.print("error=n must be 0..10000");
         delay(n);
-        out.print(str::format("slept_ms=%u", n));
+        out.print(str::format("slept_ms=%" PRIu32, n));
     });
 
     // the CLI matches arity exactly, so the tokenizer probe comes in fixed arities

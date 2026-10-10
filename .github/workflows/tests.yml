@@ -1,0 +1,16 @@
+# tests.yml: host unit tests, arduino-lint and the examples on c3/c6/s3 for every push and PR.
+# Releases stay with publish-arduino-library (un-prefixed X.Y.Z tags); nothing here publishes.
+name: tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  core:
+    uses: xewe-labs/xewe-os-tools/.github/workflows/xewe-core-tests.yml@main

@@ -5,6 +5,7 @@
 
 #include <Arduino.h>
 
+#include <cinttypes>
 #include <type_traits>
 
 #include "Debug.h"
@@ -52,14 +53,14 @@ public:
         : delay_ms(delay)
         , start_val(start)
         , target_val(target) {
-        DBG_PRINTF(AsyncTimer, "[AsyncTimer] Created: Delay=%lu, Start=%f, Target=%f\n",
+        DBG_PRINTF(AsyncTimer, "[AsyncTimer] Created: Delay=%" PRIu32 ", Start=%f, Target=%f\n",
             delay, (double)start, (double)target
         );
     }
 
     // prints the timer's internal state (only with DEBUG_AsyncTimer)
     void debug_dump(const char* label = "DUMP") const {
-        DBG_PRINTF(AsyncTimer, "[AsyncTimer:%s] init:%s | done:%s | prog:%.2f | start_v:%f | target_v:%f | delay:%lu | start_t:%lu\n",
+        DBG_PRINTF(AsyncTimer, "[AsyncTimer:%s] init:%s | done:%s | prog:%.2f | start_v:%f | target_v:%f | delay:%" PRIu32 " | start_t:%" PRIu32 "\n",
             label,
             initiated ? "YES" : "NO",
             done ? "YES" : "NO",
