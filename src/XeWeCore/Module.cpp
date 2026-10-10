@@ -35,7 +35,7 @@ Module::Module(Os&               os,
 }
 
 void Module::begin() {
-    // step 0 (core 2.1): the settings table, before every routine and even when disabled
+    // step 0: the settings table, before every routine and even when disabled
     settings().attach(*this);
 
     bool first_boot = !os.nvs.read<bool>(id, "not_first_boot");
@@ -314,7 +314,7 @@ void Module::register_generic_commands() {
     }
 }
 
-// ---- settings table (core 2.1, doc/os/settings.md) ---------------------------
+// ---- settings table (doc/os/settings.md) ------------------------------------
 
 // Module::begin step 0, reached through settings_engine only (see Settings.h)
 void settings_attach(Module& module) {

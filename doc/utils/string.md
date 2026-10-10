@@ -158,9 +158,8 @@ Writes to `out` and returns `true` only on a clean parse. It trims surrounding w
 `std::numeric_limits<T>`. Signed `T` goes through `strtoll`, unsigned through `strtoull`.
 
 A leading `-` for an unsigned `T` is rejected (`"-1"`, `"-0"`), and a value beyond the 64-bit
-range (`strtoll`/`strtoull` set `ERANGE`) fails instead of saturating. Before 2026-10-08,
-`parse_int<uint64_t>("-1", out)` returned `true` with `UINT64_MAX` and
-`parse_int<long long>("9223372036854775808", out)` returned `true` with `LLONG_MAX`.
+range (`strtoll`/`strtoull` set `ERANGE`) fails instead of saturating: `parse_int<uint64_t>("-1", out)`
+and `parse_int<long long>("9223372036854775808", out)` both return `false`.
 
 ```cpp
 template <typename T, typename = std::enable_if_t<std::is_floating_point<T>::value>>

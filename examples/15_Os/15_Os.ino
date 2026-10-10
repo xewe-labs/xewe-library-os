@@ -1,5 +1,4 @@
-// Reference demo: two modules where one requires the other (disable cascades).
-// XeWeCore Os: two modules, where one requires the other.
+// Reference demo, XeWeCore Os: two modules, where one requires the other (disable cascades).
 // Try: $help
 //      $system status        <- a table of every registered module
 //      $sensor read

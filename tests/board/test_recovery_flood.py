@@ -1,9 +1,9 @@
-"""Wave 3: input flood against the 4-line queue (``SerialPort::loop``/``push_line``, core 2.0.1).
+"""Input flood against the 4-line queue (``SerialPort::loop``/``push_line``).
 
 Documented behaviour (Serial.h/Serial.cpp): completed lines go to a FIFO of 4; when it is full
 the *newest* line is dropped and ``! Input overflow: line dropped`` is printed once per dropped
 line; a line longer than 254 chars is
-dropped whole at its newline with ``! Input line too long (max 254 chars): dropped`` (core fix B).
+dropped whole at its newline with ``! Input line too long (max 254 chars): dropped``.
 """
 
 import random
@@ -62,7 +62,7 @@ def test_flood_repeated_bursts_stay_consistent(cli, log_dir):
 
 def test_1k_printable_garbage_then_newline_then_command(cli, log_dir):
     """1024 random printable chars (no '$', no quote, no newline), then a newline, then a valid
-    command: the over-long line is dropped whole (core fix B: one ``! Input line too long``
+    command: the over-long line is dropped whole (one ``! Input line too long``
     message, nothing of it executes, no split lines) and the valid command runs."""
     rng = random.Random(1008)
     alphabet = "".join(ch for ch in string.printable if ch not in "$\"\\\r\n\t\x0b\x0c")
@@ -79,9 +79,13 @@ def test_1k_printable_garbage_then_newline_then_command(cli, log_dir):
     print(f"1k garbage: too long {too_long}, rejected {rejected}, overflow {dropped}; command: {m[0]}")
     _dump(cli, log_dir, "garbage1k")
     assert (too_long, rejected, dropped) == (1, 0, 0)
-    # garbage, newline and command in a single write: same result, the command still runs
+    # garbage, newline and command in a single write: same result, the command still runs.
+    # The write must fit the 1024-byte RX buffer (SerialPortConfig::rx_buffer_size): the ESP32
+    # HWCDC driver has no flow control and drops whatever does not fit its RX queue
+    # (HWCDC.cpp: the ISR stops at a full xQueueSendFromISR). 1024 junk + 13 bytes lost the
+    # trailing "\n$system uid\n" on hardware (2026-10-09 hw-verify); 1000 junk + 13 = 1013 fits.
     start = len(cli.c.lines)
-    cli.write(junk.encode() + b"\n$system uid\n")
+    cli.write(junk[:1000].encode() + b"\n$system uid\n")
     cli.c.expect(UID, 10)
     text = "\n".join(cli.c.lines[start:] + cli.settle(0.8))
     too_long, rejected, dropped = text.count(TOO_LONG), text.count(NOT_CMD), text.count(OVERFLOW)

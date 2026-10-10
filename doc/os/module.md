@@ -77,7 +77,7 @@ virtual void begin_routines_common  ();
 
 `begin()` is not virtual and runs this sequence:
 
-0. *(2.1.0)* When the module declares a [settings table](settings.md): loads it (table defaults,
+0. When the module declares a [settings table](settings.md): loads it (table defaults,
    then NVS) and registers `$<id> set`, `get` and `schema`. This runs for a disabled module too.
    Without a table this step does nothing.
 1. Reads `not_first_boot` and `is_enabled` from NVS. On the very first boot the module starts
@@ -230,7 +230,7 @@ With `has_cli_commands`, every module gets these for free:
 | `$<id> enable` | 0 | Enable this module | `enable(true, true)`; only when `can_be_disabled` |
 | `$<id> disable` | 0 | Disable this module | `disable(true, true)`; only when `can_be_disabled` |
 
-With a [settings table](settings.md) (2.1.0) it also gets `$<id> set <key> <value>`,
+With a [settings table](settings.md) it also gets `$<id> set <key> <value>`,
 `$<id> get <key>` and `$<id> schema`, registered at `begin()`, except a name the module
 registered itself.
 
@@ -255,7 +255,7 @@ Plain persistent settings declared as one `constexpr` table; the core loads them
 
 ## Listeners
 
-`xewe::ListenerSet<Iface, N = 4>` (`src/XeWeCore/Utils/Listeners.h`, 2.1.0) is the core's
+`xewe::ListenerSet<Iface, N = 4>` (`src/XeWeCore/Utils/Listeners.h`) is the core's
 module-to-module change notification: a module that has something to announce defines a listener
 interface and owns a set; other modules (or the sketch) add themselves.
 
@@ -297,9 +297,8 @@ void on_speed(uint8_t pct, const void* origin) override {
 }
 ```
 
-Callbacks run synchronously inside the setter; keep them short (set a flag, push later). The led
-module's `LedListenerSet` is the pattern this generalises. `examples/02_MyModule` shows both the
-set and a listener.
+Callbacks run synchronously inside the setter; keep them short (set a flag, push later).
+`examples/02_MyModule` shows both the set and a listener.
 
 ## NVS keys
 

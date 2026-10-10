@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // xewe-os-core/src/XeWeCore/Settings.h
 //
-// Settings table (core 2.1): a module declares its plain persistent settings as a constexpr table of
+// Settings table: a module declares its plain persistent settings as a constexpr table of
 // SettingDef rows, and the core provides `$<id> set|get|schema`, the status lines, `$system schema`
 // and the load at begin (table default, then the NVS value). Full documentation: doc/os/settings.md.
 //

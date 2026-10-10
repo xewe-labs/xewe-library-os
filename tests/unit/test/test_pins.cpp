@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // xewe-os-core/tests/unit/test/test_pins.cpp
 //
-// xewe::pins: the GPIO registry and the per-chip strapping masks (CC5).
+// xewe::pins: the GPIO registry and the per-chip strapping masks.
 
 #include "test.h"
 

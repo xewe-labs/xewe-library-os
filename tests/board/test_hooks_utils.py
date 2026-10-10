@@ -24,12 +24,12 @@ CASES = [
     ("parse_int", "1e3", False, ""),
     ("parse_int", "", False, ""),
     ("parse_int", "9223372036854775807", True, "9223372036854775807"),
-    ("parse_int", "9223372036854775808", False, ""),          # fixed: was LLONG_MAX
-    ("parse_int", "-9223372036854775809", False, ""),         # fixed: was LLONG_MIN
+    ("parse_int", "9223372036854775808", False, ""),          # overflow: rejected, not saturated
+    ("parse_int", "-9223372036854775809", False, ""),         # overflow: rejected, not saturated
     ("parse_i64", "-9223372036854775808", True, "-9223372036854775808"),
     ("parse_u8", "255", True, "255"),
     ("parse_u8", "256", False, ""),
-    ("parse_u8", "-0", False, ""),                            # fixed: was 0
+    ("parse_u8", "-0", False, ""),                            # no sign on an unsigned type
     ("parse_u32", "4294967295", True, "4294967295"),
     ("parse_u32", "4294967296", False, ""),
     ("parse_u32", "-1", False, ""),
@@ -63,7 +63,7 @@ CASES = [
     ("upper", "abc", True, "ABC"),
 ]
 
-# lenient inputs recorded in the report (behaviour, not asserted as right or wrong)
+# lenient inputs: printed for the log, not asserted as right or wrong
 LENIENT = [("gmt", "GMT+5:30abc"), ("gmt", "GMT+ 5"), ("time", "12:30abc"), ("time", "-0:30"),
            ("parse_float", "nan"), ("parse_float", "inf"), ("parse_float", "1e-400")]
 
@@ -83,9 +83,9 @@ def test_extract_commands(hooks):
 @pytest.mark.parametrize("kind,lo,hi,value,ok,expected", [
     ("int", "-10", "10", "-5", True, "-5"),
     ("int", "-10", "10", "-11", False, ""),
-    ("i8", "0", "1000", "300", False, ""),          # fixed: was 44 (truncated)
+    ("i8", "0", "1000", "300", False, ""),          # does not fit int8_t
     ("i8", "-1000", "1000", "-128", True, "-128"),
-    ("u8", "0", "1000", "256", False, ""),          # fixed: was 0
+    ("u8", "0", "1000", "256", False, ""),          # does not fit uint8_t
     ("u8", "0", "255", "128", True, "128"),
     ("u32", "0", "4294967295", "4294967295", True, "4294967295"),
     ("u32", "0", "4294967295", "-1", False, ""),

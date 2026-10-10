@@ -38,16 +38,13 @@ An unsupported `T` fails with `static_assert`:
 * **This function is exception-free.** It delegates to
   [`xewe::str::parse_int`](string.md#number-parsing) and `parse_float`, which report failure by
   returning `false`. It compiles with `-fno-exceptions`, which most Arduino cores use.
-* **Behaviour change since 1.0.0: trailing garbage is now rejected.** 1.0.0 called `std::stoll`,
-  which stopped at the first non-numeric character, so `validate<int>("12abc", 0, 100)` returned
-  `12`. It now returns `std::nullopt`. `validate<int>("1.5", ...)` likewise returned `1` and now
-  returns empty. `validate` and `xewe::str::parse_int` now agree on what counts as a number.
-* **Base 10 only.** `std::stoll` accepted `0x`-prefixed forms on its own terms;
-  `validate<int>("0x1F", 0, 255)` now returns `std::nullopt`. Surrounding whitespace is still
-  trimmed and a leading `+`/`-` is still accepted.
+* **Trailing characters are rejected.** `validate<int>("12abc", 0, 100)` and
+  `validate<int>("1.5", 0, 100)` return `std::nullopt`. `validate` and `xewe::str::parse_int`
+  agree on what counts as a number.
+* **Base 10 only.** `validate<int>("0x1F", 0, 255)` returns `std::nullopt`. Surrounding
+  whitespace is trimmed and a leading `+`/`-` is accepted.
 * **The value must fit `T` itself**, whatever the bounds: `validate<int8_t>("300", 0, 1000)`
-  returns `std::nullopt` (before 2026-10-08 it parsed as `long long` and returned the truncated
-  `44`).
+  returns `std::nullopt`, never a truncated `44`.
 * **It allocates.** Each call copies the view into a `std::string` before parsing.
 * `min` and `max` are **not** swapped if you pass them inverted — an inverted range simply matches
   nothing and every call returns `std::nullopt`. (The `SerialPort` numeric prompts do swap; this

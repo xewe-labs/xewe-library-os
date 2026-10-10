@@ -218,10 +218,11 @@ struct FlexData {
         return ok;
     }
 
-    // ---- field presence (the last from_json_object / update / from_json) ----
+    // ---- field presence (the last from_json_object / update / from_json / from_blob) ----
     // bit i set = the i-th entry of fields() was in the JSON, non-null and accepted. Tells a
-    // missing field from one that holds its default. Cleared by the next JSON load; set_field and
-    // from_blob do not touch it. At most 32 fields (static_assert).
+    // missing field from one that holds its default. Replaced by the next load: a JSON load sets the
+    // fields it assigned, a blob load (from_blob / Nvs::read_flex) sets every field; set_field does
+    // not touch it. At most 32 fields (static_assert).
     uint32_t present() const {
         static_assert(field_count() <= 32, "FlexData presence tracks at most 32 fields");
         return present_mask;
@@ -293,8 +294,11 @@ struct FlexData {
     void write_fields(BlobWriter& w) const {
         visit(self(), [&](const char*, const auto& ref) { blob_write(w, ref); });
     }
+    // a blob is positional and holds every field: a complete read marks them all present (so a
+    // loader's has("schema") is true after read_flex), a short or failed read marks none
     void read_fields(BlobReader& r) {
         visit(self(), [&](const char*, auto& ref) { blob_read(r, ref); });
+        present_mask = r.ok ? all_fields_mask() : 0;
     }
 
     std::vector<uint8_t> to_blob() const {
@@ -307,7 +311,10 @@ struct FlexData {
     bool from_blob(const std::vector<uint8_t>& bytes) {
         BlobReader r{bytes.data(), bytes.data() + bytes.size()};
         uint8_t    ver = 0;
-        if (!r.take(&ver, 1) || ver != kBlobVersion) return false;
+        if (!r.take(&ver, 1) || ver != kBlobVersion) {
+            present_mask = 0;
+            return false;
+        }
         read_fields(r);
         return r.ok;
     }
@@ -316,6 +323,9 @@ private:
     uint32_t       present_mask = 0;   // the only state FlexData adds to a struct: 4 bytes, never stored
 
     static constexpr size_t field_count() { return std::tuple_size_v<decltype(Derived::fields())>; }
+    static constexpr uint32_t all_fields_mask() {
+        return field_count() >= 32 ? ~uint32_t{0} : (uint32_t{1} << field_count()) - 1u;
+    }
     Derived&       self() { return static_cast<Derived&>(*this); }
     const Derived& self() const { return static_cast<const Derived&>(*this); }
 

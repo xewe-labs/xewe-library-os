@@ -5,9 +5,8 @@
 // Host-includable: the standard library only, no <Arduino.h> (tests/unit/run.sh compiles it
 // without the Arduino shim). Keep it that way so pure effect code can include it.
 //
-// hsv_to_rgb is pinned bit for bit by tests/unit (test_utils.cpp, color_hsv_to_rgb_pinned).
-// xewe-os-modules led/src/Led/fx/Math.h hsv_spectrum is a copy of it: change neither until that
-// copy is deleted in favour of this header.
+// hsv_to_rgb is pinned bit for bit by tests/unit (test_utils.cpp, color_hsv_to_rgb_pinned):
+// effect code depends on its exact output, so the arithmetic and its operation order stay as they are.
 #pragma once
 
 #include <array>
@@ -25,7 +24,7 @@ inline std::array<uint8_t, 3> hsv_to_rgb(const std::array<uint8_t, 3>& hsv) {
 
     float       r_f = 0.0f, g_f = 0.0f, b_f = 0.0f;
 
-    // Apply the provided library's logic
+    // six hue sectors; i is the sector, f the position inside it
     const int   i = static_cast<int>(h_f * 6.0f);
     const float f = h_f * 6.0f - i;
     const float p = v_f * (1.0f - s_f);
@@ -82,7 +81,7 @@ inline std::array<uint8_t, 3> rgb_to_hsv(const std::array<uint8_t, 3>& rgb) {
 
     float       h_f = 0.0f, s_f = 0.0f, v_f = 0.0f;
 
-    // Apply the provided library's logic
+    // value = max channel, saturation = spread / max, hue from the dominant channel
     const float max_val = std::max({r_f, g_f, b_f});
     const float min_val = std::min({r_f, g_f, b_f});
     v_f                 = max_val;

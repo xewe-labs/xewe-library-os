@@ -56,7 +56,7 @@ def test_partial_input_fills_defaults(hooks):
     ("null", "Ok", DEFAULT),
     ("array", "Ok", DEFAULT),
     ("deep", "TooDeep", DEFAULT),
-    # Q4 (2026-10-09): type-matched assignment, every mistyped field is rejected and kept
+    # type-matched assignment: every mistyped field is rejected and keeps its value
     ("wrongtypes", "Ok", DEFAULT),
     ("boolstr", "Ok", DEFAULT.replace('"i":0', '"i":3')),
 ])
@@ -77,7 +77,7 @@ def test_huge_numbers(hooks):
     print("hugenum:", got)
     assert got["parse"] == "Ok"
     assert '"i":0' in got["json"] and '"u":0' in got["json"]
-    # FINDING: 1e400 parses as inf, serializes as null; the canonical JSON is then not stable
+    # documented behaviour: 1e400 parses as inf, serializes as null; the canonical JSON is then not stable
     assert '"f":null' in got["json"] and got["stable"] == "0"
     assert "blob_ok=1" in "\n".join(lines)
     hooks.alive()
@@ -106,14 +106,13 @@ def test_long_string(hooks):
 
 @pytest.mark.parametrize("case", ["blob_version", "blob_short", "blob_empty", "blob_strlen", "blob_veccount"])
 def test_corrupt_blob_rejected(hooks, case):
-    """blob_veccount: a 4 G element count used to make reserve() abort (fixed 2026-10-08)."""
+    """blob_veccount: a 4 G element count must be rejected without reserve() aborting."""
     assert hooks.call(f"$test flex_bad {case}") == {"blob_ok": "0"}
     hooks.alive()
 
 
 def test_string_into_bool_rejected(hooks):
-    """Q4 (2026-10-09): a string in a bool field is rejected and reported; b keeps its value.
-    UNVERIFIED on hardware (written while the board was offline)."""
+    """A string in a bool field is rejected and reported; b keeps its value."""
     lines = hooks.run("$test flex_bad boolstr", until=r"^blob_len=")
     assert any("! Probe.b: expected bool, got string" in line for line in lines)
     assert any(line.startswith("json=") and '"b":false' in line and '"i":3' in line for line in lines)

@@ -1,12 +1,12 @@
 """Short soak: 200 mixed commands with heap sampled every 20 (Cli, SerialPort, Nvs, modules)."""
 
-CYCLE = [
+CYCLE = [   # {pin}: the free test GPIO (cli.test_pin; GPIO 4 is the fan's PWM pin on the 9-module S3 image)
     ("$system status", r"\|\s*Web Interface\s*\|"),
     ("$wifi status", r"^Wifi module enabled"),
     ("$time status", r"^Time module enabled"),
     ("$pins status", r"^Pins module enabled"),
-    ("$buttons add 4 \"$system status\" pullup on_press 50", r"^Successfully added button mapping\."),
-    ("$buttons status", r"^\|\s*0\s*\|\s*4\s*\|"),
+    ("$buttons add {pin} \"$system status\" pullup on_press 50", r"^Successfully added button mapping\."),
+    ("$buttons status", r"^\|\s*0\s*\|\s*{pin}\s*\|"),
     ("$buttons remove 0", r"^Successfully removed button mapping\."),
     ("$schedule add 1439 1439 6 00FF00 \"$system status\"", r"^Scheduler: schedule saved"),
     ("$schedule status", r'"id":0'),
@@ -26,6 +26,7 @@ def test_soak_200_commands(cli, csv_writer):
     samples.append([0, f, total, up])
     for n in range(1, 201):
         cmd, rx = CYCLE[(n - 1) % len(CYCLE)]
+        cmd, rx = cmd.replace("{pin}", str(cli.test_pin)), rx.replace("{pin}", str(cli.test_pin))
         cli.c.send(cmd)
         cli.c.expect(rx, 15)
         cli.settle(0.25)

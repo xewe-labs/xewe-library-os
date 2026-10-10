@@ -30,6 +30,7 @@ public:
     std::string status                 (const bool verbose = false)     const override;
 
     std::string get_device_name        ();
+    void        print_schema_all       ();   // `$system schema`
     void        restart                (uint16_t delay_ms = 1000);
 };
 ```
@@ -43,6 +44,7 @@ public:
 | `$system info` | 0 | chip model, cores, revision, IDF version, flash size and speed, Wi-Fi station MAC |
 | `$system set_device_name "<name>"` | 1 | stores `system/device_name` and prints `Device name set to: <name>` |
 | `$system mac` | 0 | one line per interface that reads back: `wifi_sta`, `wifi_ap`, `bt`, `eth` |
+| `$system schema` | 0 | every module's settings as JSON Lines, [below](#system-schema) |
 | `$system uid` | 0 | `base_mac <hex>` from the eFuse base MAC, and `uid64 <hex>` — the first 8 bytes of its SHA-256 |
 | `$system status` | 0 | inherited, but [overridden](#status) to print a table of every module |
 | `$system reset` | 0 | inherited, but [overridden](#reset) — a full factory reset |
@@ -58,7 +60,7 @@ at boot keeps the old one until the next restart.
 
 ### $system schema
 
-*(2.1.0)* Every module's [settings](settings.md) as JSON Lines: a header
+Every module's [settings](settings.md) as JSON Lines: a header
 `{"schema":1,"core":"2.1.0","device":"<name>","modules":["system",...]}`, then each module's rows
 (table rows, then `schema_extra` rows) with `"module":"<id>"` first, then
 `{"end":"system","count":<rows>}`. `modules` lists every registered module. Implemented by

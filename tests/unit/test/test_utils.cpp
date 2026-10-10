@@ -102,8 +102,7 @@ TEST(color) {
     CHECK((xewe::color::rgb_to_hsv({255, 0, 0}) == std::array<uint8_t, 3>{0, 255, 255}));
 }
 
-// Pins hsv_to_rgb bit for bit. xewe-os-modules led fx/Math.h hsv_spectrum is a copy and must stay
-// identical until it is deleted in favour of Utils/Color.h. The checksum covers a 256 x 256 x 16 grid
+// Pins hsv_to_rgb bit for bit: effect code depends on its exact output. The checksum covers a 256 x 256 x 16 grid
 // and assumes run.sh's flags (no -O, so no FMA contraction; -O2 -ffp-contract=fast changes it).
 TEST(color_hsv_to_rgb_pinned) {
     using A = std::array<uint8_t, 3>;

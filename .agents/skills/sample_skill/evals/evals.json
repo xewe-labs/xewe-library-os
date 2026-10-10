@@ -1,0 +1,17 @@
+{
+  "skill_name": "sample_skill",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I need a skill for this repo that turns our weekly metrics CSV in data/weekly.csv into a short markdown summary. Can you set it up the way our other skills are laid out?",
+      "expected_output": "A new folder under skills/ with SKILL.md (name equal to the folder, pushy description), a scripts/ helper for the CSV step, and a fixed output template.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "review skills/wax_handoff/SKILL.md and tell me if it follows our skill conventions",
+      "expected_output": "A review that checks frontmatter keys, name/folder match, body length, imperative numbered procedures, refusals table, and file list, citing R-13 and R-14 where relevant.",
+      "files": []
+    }
+  ]
+}

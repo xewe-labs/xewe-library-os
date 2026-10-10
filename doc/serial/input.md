@@ -65,6 +65,10 @@ this first, so a stray keystroke typed before the question does not answer it.
   four are already waiting, the **newest** line is dropped, the queued ones are kept, and
   `! Input overflow: line dropped` is printed once per dropped line. The queue costs about 1 KB of
   static RAM per `SerialPort`.
+* **One burst must fit the RX buffer** (`rx_buffer_size`, 1024 bytes by default, see
+  [config](config.md)). On the ESP32's USB console (HWCDC) the driver has no flow control: bytes
+  that arrive while its RX queue is full are discarded before `loop()` sees them. On an S3, one
+  host write of 1024 junk bytes + `\n$system uid\n` (1037 bytes) lost the command at its end.
 * **There is no line editing.** A backspace is stored as a literal `\b` character; arrow keys
   arrive as escape sequences. The echo is a raw echo, not a readline.
 * `read_line()` returns a copy; the queue slot is reused immediately.

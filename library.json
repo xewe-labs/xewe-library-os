@@ -34,7 +34,8 @@
   "export": {
     "exclude": [
       ".github",
-      "tests"
+      "tests",
+      ".agents"
     ]
   }
 }

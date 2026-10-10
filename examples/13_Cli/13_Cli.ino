@@ -1,6 +1,5 @@
-// Reference demo: a standalone Cli with groups, quoting and argument checks.
-// XeWeCore Cli: several groups, quoted arguments, argument checking, and
-// running a command from code.
+// Reference demo, XeWeCore Cli: a standalone Cli with several groups, quoted
+// arguments, argument checking, and running a command from code.
 // Try: $help
 //      $dev name "Kitchen Lights"
 //      $dev name "say \"hi\""

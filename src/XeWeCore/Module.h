@@ -77,7 +77,7 @@ public:
     std::string_view         get_name                  ()                           const;
     std::string_view         get_description           ()                           const;
 
-    // settings table (core 2.1, doc/os/settings.md). Empty by default: no commands, no NVS reads,
+    // settings table (doc/os/settings.md). Empty by default: no commands, no NVS reads,
     // no schema rows. Override to return {table, this}; read at begin() before every routine.
     virtual Settings         settings                  ()                           const;
     // extra schema rows after the table's (e.g. mode parameters with "group":"mode:<name>")

@@ -42,7 +42,8 @@ for std in c++17 gnu++2b; do
     done
 
     echo "== $std: tests"
-    "$CXX" -std="$std" "${FLAGS[@]}" "$HERE"/test/*.cpp "${JSON_TESTS[@]}" "${LIB_SRCS[@]}" -o "$OUT/tests.$std"
+    # ${a[@]+"${a[@]}"}: an empty array under `set -u` aborts macOS bash 3.2 (testing v1, Mac run)
+    "$CXX" -std="$std" "${FLAGS[@]}" "$HERE"/test/*.cpp ${JSON_TESTS[@]+"${JSON_TESTS[@]}"} "${LIB_SRCS[@]}" -o "$OUT/tests.$std"
     "$OUT/tests.$std"
 done
 echo "== all unit checks passed"

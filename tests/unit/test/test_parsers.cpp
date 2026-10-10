@@ -3,8 +3,8 @@
 // xewe-os-core/tests/unit/test/test_parsers.cpp
 //
 // Parser/validator cases; the same table runs on the board through `$test validate` in
-// tests/board/test_hooks_utils.py (keep the two in sync). Regressions for the 2026-10-08
-// fixes: 64-bit overflow saturation, "-1" accepted as UINT64_MAX, validate<T> truncation.
+// tests/board/test_hooks_utils.py (keep the two in sync). Covers 64-bit overflow (rejected, never
+// saturated), "-1" into an unsigned type, and validate<T> refusing values that do not fit T.
 
 #include "test.h"
 
@@ -16,19 +16,19 @@
 
 TEST(parse_int_64bit_overflow_rejected) {
     long long v = 0;
-    CHECK(!xewe::str::parse_int("9223372036854775808", v));    // was accepted as LLONG_MAX
+    CHECK(!xewe::str::parse_int("9223372036854775808", v));    // overflow: rejected, not saturated
     CHECK(!xewe::str::parse_int("-9223372036854775809", v));
     CHECK(xewe::str::parse_int("-9223372036854775808", v));
     CHECK(v == INT64_MIN);
     uint64_t u = 0;
-    CHECK(!xewe::str::parse_int("18446744073709551616", u));   // was accepted as UINT64_MAX
+    CHECK(!xewe::str::parse_int("18446744073709551616", u));   // overflow: rejected, not saturated
     CHECK(xewe::str::parse_int("18446744073709551615", u));
     CHECK(u == UINT64_MAX);
 }
 
 TEST(parse_int_unsigned_rejects_minus) {
     uint64_t u = 7;
-    CHECK(!xewe::str::parse_int("-1", u));                      // was accepted as UINT64_MAX
+    CHECK(!xewe::str::parse_int("-1", u));                      // no wrap to UINT64_MAX
     CHECK(u == 7);
     uint8_t b = 0;
     CHECK(!xewe::str::parse_int("-0", b));
@@ -49,8 +49,8 @@ TEST(parse_int_table) {
 }
 
 TEST(validate_does_not_truncate_to_type) {
-    CHECK(!xewe::validate<int8_t>("300", 0, 1000).has_value());   // was 44
-    CHECK(!xewe::validate<uint8_t>("256", 0, 1000).has_value());  // was 0
+    CHECK(!xewe::validate<int8_t>("300", 0, 1000).has_value());   // does not fit int8_t
+    CHECK(!xewe::validate<uint8_t>("256", 0, 1000).has_value());  // does not fit uint8_t
     CHECK(xewe::validate<int8_t>("-128", -1000, 1000).value_or(0) == -128);
     CHECK(xewe::validate<uint32_t>("4294967295", 0ULL, 4294967295ULL).value_or(0) == 4294967295u);
     CHECK(!xewe::validate<uint32_t>("-1", 0ULL, 4294967295ULL).has_value());

@@ -7,20 +7,23 @@
 import re
 import time
 
-MODULES = ["System", "Buttons", "Pins", "Wifi", "Time", "Scheduler", "Web Interface"]
-
 
 def test_status_table(cli):
     """System::status: header, column titles, one row per registered module with Yes/No and status."""
     out = [l.strip() for l in cli.run("$system status")]
     assert any(re.fullmatch(r"\|\s+System Status\s+\|", l) for l in out), out
     assert any(re.fullmatch(r"\|\s*Module Name\s*\|\s*Enabled\s*\|\s*Status\s*\|", l) for l in out)
-    rows = {m[1]: (m[2], m[3]) for l in out
-            if (m := re.fullmatch(r"\|\s*([^|\s][^|]*?)\s*\|\s*(Yes|No)\s*\|\s*(.*?)\s*\|", l))}
-    assert list(rows) == MODULES, rows
-    assert rows["System"] == ("Yes", "System OK")
-    for name in MODULES[1:]:
+    rows = cli.status_rows(out)
+    # System first, then the modules in registration order; extra modules (fan, led, mlx90614,
+    # the template's two) are allowed, the six the core tests drive must be there, enabled
+    assert list(rows)[0] == "System" and rows["System"] == ("Yes", "System OK"), rows
+    required = [n for n in rows if n in cli.required_modules]
+    assert required == cli.required_modules, rows
+    for name in cli.required_modules:
         assert rows[name] == ("Yes", f"{name} module enabled"), (name, rows[name])
+    for name, (enabled, first) in list(rows.items())[1:]:     # Yes/No agrees with the status text
+        text = f"{name} module " + ("enabled" if enabled == "Yes" else "disabled")
+        assert first.startswith(text) or text.startswith(first), (name, enabled, first)   # may wrap
     assert any(re.search(r"Connected to ", l) for l in out), "Wi-Fi not connected"
 
 

@@ -1,5 +1,4 @@
-// Reference demo: SerialPort output, typed prompts and non-blocking line input.
-// XeWeCore Serial: formatted output, typed input prompts, and reading lines
+// Reference demo, XeWeCore Serial: formatted output, typed input prompts, and reading lines
 // without blocking.
 #include <XeWeCore.h>
 

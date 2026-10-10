@@ -1,4 +1,4 @@
-"""Wave 3: rapid restart cycles (``System`` ``restart`` command -> ``System::restart`` ->
+"""Rapid restart cycles (``System`` ``restart`` command -> ``System::restart`` ->
 ``ESP.restart()``; ``Os::begin`` prints ``System Setup Complete`` at the end of every boot)."""
 
 import re

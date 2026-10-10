@@ -3,8 +3,6 @@
 `src/XeWeCore/Utils/AsyncTimer.h` — non-blocking interpolation between two values over a fixed
 duration.
 
-`xewe::AsyncTimer` (it was in the global namespace before XeWeCore 2.0.0).
-
 ```cpp
 xewe::AsyncTimer<uint8_t> fade(2000, 0, 255);  // 0 -> 255 over 2 s
 

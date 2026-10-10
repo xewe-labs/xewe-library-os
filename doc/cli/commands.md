@@ -42,8 +42,8 @@ of `Command`, in order:
 
 ## Commands a module gets from the core
 
-`xewe::Module` registers `status`, `reset` (and `enable`/`disable`) in every module's group, and,
-since 2.1.0, `set`, `get` and `schema` in the group of a module with a
+`xewe::Module` registers `status`, `reset` (and `enable`/`disable`) in every module's group, and
+`set`, `get` and `schema` in the group of a module with a
 [settings table](../os/settings.md) (at `begin()`, skipping any name the module registered
 itself). Those are ordinary commands; see [`os/module.md`](../os/module.md#generic-cli-commands).
 
@@ -116,7 +116,7 @@ whose id is empty, contains whitespace, equals `help` (`$help` is intercepted), 
 characters (NVS namespace limit), or is already registered (also case-insensitively against an
 existing group, since group ids are case-insensitive). It reports
 `! Module id '<id>' is already registered: module not registered` (or the other reason) and the
-module gets no group and no commands: a duplicate no longer merges into the first module's group.
+module gets no group and no commands: a duplicate never merges into the first module's group.
 The checks are `Cli::name_error(name, is_module_id)`.
 
 `add_group` itself does not validate: called directly, it still merges on an existing id, and a

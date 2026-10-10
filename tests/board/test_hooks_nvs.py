@@ -75,7 +75,7 @@ def test_type_mismatch_reads_as_missing(hooks, ns):
 
 def test_overwrite_with_other_type(hooks, ns):
     """Same key, new type: the new value reads back. Whether the old typed entry survives is
-    ESP-IDF behaviour; it is recorded in the report, not asserted."""
+    ESP-IDF behaviour; it is printed, not asserted."""
     hooks.call(f"$test nvs {ns} k i32 7")
     assert hooks.call(f"$test nvs {ns} k str seven") == {"write": "1"}
     assert unquote(hooks.call(f"$test nvs_read {ns} k str")["value"]) == "seven"

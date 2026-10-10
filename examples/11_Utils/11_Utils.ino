@@ -1,5 +1,4 @@
-// Reference demo: string and validation helpers, AsyncTimer, Color and LockGuard.
-// XeWeCore Utils: string and validation helpers, then AsyncTimer, Color and
+// Reference demo, XeWeCore Utils: string and validation helpers, then AsyncTimer, Color and
 // LockGuard working together. A non-blocking fade drives the LED while a second
 // task advances a hue; the two share state through a mutex guarded by
 // xewe::LockGuard.

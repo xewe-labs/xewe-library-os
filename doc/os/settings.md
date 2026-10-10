@@ -1,6 +1,6 @@
 # Settings table
 
-`src/XeWeCore/Settings.h` (core 2.1.0). A module declares its plain persistent settings as one
+`src/XeWeCore/Settings.h`. A module declares its plain persistent settings as one
 `constexpr` table; the core then provides, from that table alone:
 
 * the load at `begin()`: table default, then the value stored in NVS;
@@ -10,9 +10,8 @@
 
 A module that does not declare a table gets none of it, and pays nothing: no commands, no NVS
 reads, no output. A firmware in which **no** module declares a table does not even link the
-engine (`$system schema` still answers, with a header and no rows); measured on `15_Os` (ESP32-C3)
-core 2.1 adds 4.0 KB of flash over 2.0.1. The first module that declares a table links the engine,
-about 9 KB once; each further row costs its `SettingDef` (48 B) plus its strings.
+engine (`$system schema` still answers, with a header and no rows). The first module that declares
+a table links the engine, about 9 KB of flash once; each further row costs its `SettingDef` (48 B) plus its strings.
 
 ## Declaring a table
 
@@ -103,6 +102,29 @@ virtual void           on_setting_changed(const xewe::SettingDef& def);    // af
 what `$<id> set` prints. A module may still write a member and `os.nvs.write` the same key itself
 (e.g. a first-boot prompt); the next boot loads it.
 
+## The `xewe::Settings` value
+
+`settings()` returns a `xewe::Settings`: a view of the table plus the object its rows point into.
+The core uses it; a module rarely needs more than `return {table, this};`.
+
+```cpp
+bool                         empty   () const;                        // no table (the default)
+xewe::span<const SettingDef> rows    () const;
+const SettingDef*            find    (std::string_view key) const;    // nullptr when absent
+void                         load    (Nvs&, std::string_view ns, SerialPort* report = nullptr) const;
+SettingError                 set     (Nvs&, std::string_view ns, std::string_view key,
+                                      std::string_view text, const SettingDef** row = nullptr) const;
+std::string                  value   (const SettingDef&) const;       // as `get` prints it
+std::string                  schema  (const SettingDef&) const;       // the fields of one schema row
+std::string                  expected(const SettingDef&) const;       // e.g. "u16 in [0, 1000]"
+static std::string           header  (std::string_view core_version, std::string_view device,
+                                      xewe::span<const std::string_view> module_ids);
+```
+
+`SettingError` is `NONE`, `UNKNOWN_KEY`, `BAD_VALUE` or `NOT_SAVED` (applied, but the NVS write
+failed). `xewe::SchemaOut(serial, module_id = {})` writes rows: `row(fields)` wraps the fields in
+braces (adding `"module"` when a module id is set), `count()` returns the rows written.
+
 ## Commands
 
 | Command | Output |
@@ -167,7 +189,7 @@ command (`print_schema` plus the end line).
 
 ## Versioning (`requires_core`)
 
-The table, `Settings.h`, `Utils/Listeners.h` and `$system schema` are new in **2.1.0**. A module
+The table, `Settings.h`, `Utils/Listeners.h` and `$system schema` need XeWeCore **2.1.0** or later. A module
 that declares a table (or uses `ListenerSet`) declares `requires_core = ">=2.1.0,<3.0.0"` in its
 manifest and `XeWeCore (>=2.1.0)` in `depends`. Modules that use neither keep `>=2.0.0,<3.0.0`.
 `XEWE_CORE_VERSION_MAJOR/MINOR/PATCH` allow an `#if` in code shared across versions.

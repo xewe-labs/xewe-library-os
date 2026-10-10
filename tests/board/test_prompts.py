@@ -2,8 +2,7 @@
 
 ``$buttons disable`` asks `OK?` with get_yn(retry_count=2, timeout_ms=15000, default false): two
 attempts of 15 s (a typo or a timeout re-prompts once; worst stall 30 s); a second timeout or invalid
-answer prints `! No answer: disable cancelled` and aborts (core fix after wave 1; before it the
-prompt waited forever and re-prompted on invalid input).
+answer prints `! No answer: disable cancelled` and aborts, so the prompt never waits forever.
 """
 
 import re
@@ -105,7 +104,7 @@ def test_disable_yes_then_enable(cli):
         reboot_wait()  # Module::disable restarts the board itself (do_restart = true)
         assert "Buttons module disabled" in cli.run("$buttons status")
         # module commands stay registered while disabled; Buttons' add is silently ignored
-        out = cli.run('$buttons add 4 "$system status" pullup on_press 50')
+        out = cli.run(f'$buttons add {cli.test_pin} "$system status" pullup on_press 50')
         assert not any("Successfully added" in l for l in out), out
         out = [l.strip() for l in cli.run("$system status")]
         assert any(re.match(r"\|\s*Buttons\s*\|\s*No\s*\|", l) for l in out), out

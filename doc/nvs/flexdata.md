@@ -77,7 +77,7 @@ nothing is printed. Type mismatches are reported (below).
 
 ### Type rules
 
-Assignment is type-matched (`is<M>()` before `as<M>()`; owner decision Q4, 2026-10-09). A
+Assignment is type-matched (`is<M>()` before `as<M>()`). A
 present value of the wrong JSON type is **rejected**: that field keeps its previous value, the
 other fields are still applied, the call returns `false`, and `xewe::flex_error_handler` gets
 `! <Struct>.<field>: expected <type>, got <json type>`, e.g. `! Settings.name: expected string,
@@ -122,9 +122,13 @@ if (!s.has("schema")) { /* no schema key: not "version 1" */ }
 
 * `present()` is the bitmask: bit *i* is the *i*-th entry of `fields()`. `has` of an unknown name
   is `false`.
-* Each JSON load **replaces** the mask: after two `update` calls it describes the second one only.
-* `set_field`, `from_blob` and `read_flex` do not change it. A blob always holds every field, so
-  presence is a JSON question.
+* Each load **replaces** the mask: after two `update` calls it describes the second one only.
+* A blob always holds every field, so a successful `from_blob` (and so `Nvs::read_flex`) marks
+  **every** field present, and a failed one (wrong blob version, too short) marks none. A loader can
+  therefore write `read_flex(...) && s.has("schema") && s.schema == SCHEMA` for blobs and JSON
+  alike. (Up to core `205ad11` a blob load left the mask unchanged, so `has()` after `read_flex` was
+  always `false`.)
+* `set_field` does not change it.
 * Nested structs (and the elements of a `std::vector` of structs) track their own presence:
   `s.inner.has("a")`.
 * **At most 32 fields:** `present()` and `has()` do not compile (`static_assert`) on a struct with

@@ -86,17 +86,17 @@ TEST(flex_malformed_is_ignored) {
 
 TEST(flex_wrong_types_and_huge_numbers) {
     const Probe p = Probe::from_json(R"({"b":"yes","i":"abc","v":{"x":1},"in":[1],"s":5})");
-    CHECK_EQ(p.as_json_str(), kDefault);                            // every field rejected (Q4)
+    CHECK_EQ(p.as_json_str(), kDefault);                            // every field rejected (type-matched)
     const Probe h = Probe::from_json(R"({"i":99999999999999999999,"u":-1})");
     CHECK(h.i == 0 && h.u == 0);                                    // out of range -> rejected
     CHECK(blob_round_trip(h));
-    // documented finding: a non-finite float serializes as null, so the JSON is not stable
+    // documented behaviour: a non-finite float serializes as null, so the JSON is not stable
     const Probe inf = Probe::from_json(R"({"f":1e400})");
     CHECK(inf.as_json_str().find("\"f\":null") != std::string::npos);
     CHECK(Probe::from_json(inf.as_json_str()).as_json_str() != inf.as_json_str());
 }
 
-// ---- Q4 (2026-10-09): type-matched assignment -------------------------------
+// ---- type-matched assignment ------------------------------------------------
 
 namespace {
 // captures what FlexData reports while in scope
@@ -210,11 +210,11 @@ TEST(flex_corrupt_blobs_rejected) {
     CHECK(!p.from_blob(v));                                         // truncated
     CHECK(!p.from_blob({}));                                        // empty
     CHECK(!p.from_blob(with(30, 0xFF)));                            // string length 4 GiB
-    // vector count 4 G: reserve() used to allocate 16 GiB and abort (bad_alloc)
+    // vector count 4 G: must not reserve() 16 GiB and abort (bad_alloc)
     CHECK(!p.from_blob(with(34, 0xFF)));
 }
 
-// ---- field presence (CC7): missing vs default vs present ----
+// ---- field presence: missing vs default vs present ----
 
 namespace {
 struct Versioned : xewe::FlexData<Versioned> {
@@ -250,14 +250,39 @@ TEST(flex_presence_null_and_rejected_are_not_present) {
     CHECK(!Versioned::from_json("{}").has("schema"));
 }
 
-TEST(flex_presence_nested_and_unchanged_by_blob) {
+TEST(flex_presence_nested_and_set_by_blob) {
     Probe p;
     CHECK(p.update(R"({"in":{"s":"q"},"vi":[{"a":5}]})"));
     CHECK(p.has("in") && p.has("vi") && !p.has("b"));
     CHECK(p.in.has("s") && !p.in.has("a"));                       // nested structs track their own
     CHECK(p.vi.size() == 1 && p.vi[0].has("a") && !p.vi[0].has("s"));
-    const uint32_t before = p.present();
-    CHECK(p.from_blob(Probe{}.to_blob()));
-    CHECK(p.present() == before);                                  // from_blob does not touch it
-    CHECK(p.set_field("b", true) && !p.has("b"));                  // neither does set_field
+    Probe src;
+    src.vi.resize(1);
+    CHECK(p.from_blob(src.to_blob()));
+    CHECK(p.present() == 0x3FFu);                                  // a blob holds all 10 fields
+    CHECK(p.in.has("a") && p.in.has("s"));                         // nested: every field too
+    CHECK(p.vi.size() == 1 && p.vi[0].has("a") && p.vi[0].has("s"));
+    CHECK(p.set_field("b", true) && p.has("b"));                  // set_field does not clear it
+}
+
+// testing v1 (2026-10-09, board): fan, mlx90614, YourModuleFull and the pad check has("schema")
+// after Nvs::read_flex; with presence JSON-only that was always false, so every stored blob was
+// treated as foreign ("stored settings have schema 1, this firmware reads schema 1; using the
+// default") and fan curve changes were lost at every restart.
+TEST(flex_presence_after_blob_load_has_schema) {
+    Versioned stored;
+    stored.schema = 1;
+    const std::vector<uint8_t> blob = stored.to_blob();
+    Versioned v;
+    CHECK(v.update(R"({"name":"x"})") && !v.has("schema"));      // a JSON load without schema
+    CHECK(v.from_blob(blob));
+    CHECK(v.has("schema") && v.has("name") && v.schema == 1);     // the blob load replaces the mask
+    Versioned fresh;
+    CHECK(fresh.from_blob(blob) && fresh.has("schema"));          // what read_flex hands a loader
+    std::vector<uint8_t> bad_version = blob;
+    bad_version[0] = 99;
+    CHECK(!v.from_blob(bad_version) && v.present() == 0);         // a failed load marks nothing
+    CHECK(v.from_blob(blob) && v.present() == 0b11u);
+    const std::vector<uint8_t> truncated(blob.begin(), blob.begin() + 2);
+    CHECK(!v.from_blob(truncated) && v.present() == 0);
 }

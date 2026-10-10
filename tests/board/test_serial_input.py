@@ -1,4 +1,4 @@
-"""Black-box tests of the serial input queue (``SerialPort::loop``/``push_line``, core 2.0.1)."""
+"""Black-box tests of the serial input queue (``SerialPort::loop``/``push_line``)."""
 
 import time
 

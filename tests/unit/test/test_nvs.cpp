@@ -49,7 +49,7 @@ TEST(nvs_round_trip_all_types) {
     CHECK(f.nvs.write<std::string>("ns", "s", "hello"));
     CHECK(f.nvs.write<std::string>("ns", "empty", ""));
     CHECK(f.nvs.write<const char*>("ns", "cstr", "lit"));
-    CHECK(f.nvs.write("ns", "lit", "bare"));                 // T = char[5]: no -Waddress (N-L2)
+    CHECK(f.nvs.write("ns", "lit", "bare"));                 // T = char[5]: no -Waddress
     CHECK(f.nvs.write<const char*>("ns", "null", nullptr));
     CHECK(f.nvs.write<std::string_view>("ns", "sv", std::string_view("view")));
 
@@ -121,7 +121,7 @@ TEST(nvs_type_confusion_reads_default) {
 }
 
 TEST(nvs_read_cannot_tell_missing_from_wrong_type_or_error) {
-    // Documents finding N-M1: read<T> returns default_value for "missing", "wrong type",
+    // read<T> returns default_value for "missing", "wrong type",
     // "namespace never written", "over-long key" and "NVS not initialised" alike.
     Fx f;
     CHECK(f.nvs.write<int32_t>("ns", "wrong", 5));
@@ -189,7 +189,7 @@ TEST(nvs_init_failure_fails_every_call_and_reports_once) {
     host_nvs::state().init_results = {ESP_ERR_NOT_FOUND, ESP_ERR_NOT_FOUND, ESP_ERR_NOT_FOUND};
     CHECK(!f.nvs.write<int32_t>("ns", "k", 1));
     CHECK_EQ(f.nvs.read<int32_t>("ns", "k", 4), 4);
-    CHECK(!f.nvs.write<bool>("root", "init_setup_flag", true));   // see finding N-H1 (XeWeOs.cpp)
+    CHECK(!f.nvs.write<bool>("root", "init_setup_flag", true));   // Os::begin must not restart on this
     CHECK(f.logged("ESP_ERR_NOT_FOUND"));
     CHECK_EQ(f.errors.size(), std::size_t(1));
     // the partition comes back: the next call initialises normally
@@ -230,7 +230,7 @@ TEST(nvs_erase_all_wipes_and_stays_usable) {
 }
 
 TEST(nvs_first_boot_flag_pattern) {
-    // XeWeOs.cpp:29 / Module.cpp:34: "flag missing" == first boot. A namespace that was
+    // Os::begin and Module::begin: "flag missing" == first boot. A namespace that was
     // never written reads as first boot, and an erased partition does too.
     Fx f;
     CHECK(!f.nvs.read<bool>("root", "init_setup_flag"));

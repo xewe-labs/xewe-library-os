@@ -1,4 +1,4 @@
-"""Shared helpers for the ``$test`` hook tests (wave 2, test_hooks_*.py).
+"""Shared helpers for the ``$test`` hook tests (test_hooks_*.py).
 
 The hooks exist only in firmware built with ``XEWE_TESTING`` (src/XeWeCore/Testing.cpp):
 

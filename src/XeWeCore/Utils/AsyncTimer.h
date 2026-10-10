@@ -57,7 +57,7 @@ public:
         );
     }
 
-    // New helper to confirm the internal "shit"
+    // prints the timer's internal state (only with DEBUG_AsyncTimer)
     void debug_dump(const char* label = "DUMP") const {
         DBG_PRINTF(AsyncTimer, "[AsyncTimer:%s] init:%s | done:%s | prog:%.2f | start_v:%f | target_v:%f | delay:%lu | start_t:%lu\n",
             label,

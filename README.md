@@ -1,16 +1,16 @@
 # XeWeCore
 
-Modular firmware core for ESP32: a serial console, a command line, typed NVS storage, small
-helpers and a module framework, in one Arduino library.
-
-XeWeCore 2.0.0 replaces XeWeUtils, XeWeSerial, XeWeCli, XeWeNvs and XeWeOS (all 1.0.0). Behaviour,
-NVS keys, module ids and CLI commands are unchanged (one exception, see
-[Upgrading](#upgrading-from-the-100-libraries)), so devices keep their stored data.
+Modular firmware core for ESP32, as one Arduino library: a serial console, a `$group command`
+command line, typed NVS storage, small helpers and a module framework. You write modules; the core
+gives each one its commands, its stored settings and its place in the boot order.
 
 * **Boards:** ESP32 family (arduino-esp32 3.x). The examples compile for ESP32-C3, C6 and S3.
-* **Depends on:** [ArduinoJson](https://arduinojson.org/) 7.
+* **Depends on:** [ArduinoJson](https://arduinojson.org/) 7, installed with it.
 
-## Use it
+## Install
+
+Arduino IDE: **Library Manager → search `XeWeCore` → Install**. With arduino-cli:
+`arduino-cli lib install XeWeCore`.
 
 ```cpp
 #include <XeWeCore.h>
@@ -21,47 +21,24 @@ void setup() { os.begin(); }
 void loop()  { os.loop();  }
 ```
 
-Always include `<XeWeCore.h>`. The parts work on their own too: `xewe::SerialPort`, `xewe::Cli`,
-`xewe::Nvs`, `xewe::FlexData` and the `xewe::str` helpers need no `XeWeOs`.
+Upload, open the Serial Monitor at 115200 baud and type `$help`.
 
-| Member | Type | What it is |
+## Three levels
+
+| Level | You need | Start with |
 |---|---|---|
-| `os.serial` | `xewe::SerialPort` | formatted console output and typed prompts |
-| `os.nvs` | `xewe::Nvs` | typed key-value storage in flash |
-| `os.cli` | `xewe::Cli` | `$group command args` parser and `$help` |
-| `os.system` | `xewe::System` | the built-in module: restart, info, device name |
+| 1. Use the console | Arduino IDE + XeWeCore | [`examples/01_Hello`](examples/01_Hello/01_Hello.ino): `$help`, `$system status`, a device name kept in NVS |
+| 2. Write a module | the same, plus one module in your sketch folder | [`examples/02_MyModule`](examples/02_MyModule/02_MyModule.ino): your own `$my …` commands, a settings table, enable/disable |
+| 3. Build a product | the [xewe-os](https://github.com/xewe-labs/xewe-os) project template and its tools | ready-made modules (Wi-Fi, web interface, scheduler, …), multi-chip builds, board tests, releases |
 
-Modules derive from `xewe::Module`; start from [`examples/02_MyModule`](examples/02_MyModule).
-
-* **Input queue:** serial input keeps up to four completed lines, and a line over 254 characters is dropped whole.
-* **Bounded confirmations:** `$<module> disable` and `$system reset` ask at most twice, 15 s each, and cancel unless the answer is yes.
-* **Settings table (2.1.0):** declare a module's settings once as a `constexpr` table and get `$<id> set|get|schema`, status lines, NVS load and `$system schema` for free ([`doc/os/settings.md`](doc/os/settings.md)); modules without one pay nothing.
-* **Listener sets (2.1.0):** `xewe::ListenerSet<Iface>` for module-to-module change notifications, with an `origin` pointer against echoes ([`doc/os/module.md`](doc/os/module.md#listeners)).
-* **Test hooks:** building with `XEWE_TESTING` adds a `$test` command group for the board tests (`tests/board`) and costs nothing otherwise.
-
-## Examples
-
-Start with `01_Hello` (level 1: the Os alone) and `02_MyModule` (level 2: your own module).
-Reference demos: `11_Utils`, `12_Serial`, `13_Cli`, `14_Nvs`, `15_Os`. See [`examples/`](examples/README.md).
-
-## Upgrading from the 1.0.0 libraries
-
-| 1.0.0 | 2.0.0 |
-|---|---|
-| `#include <XeWeOS.h>` (and the other four) | `#include <XeWeCore.h>` |
-| `xewe::os::ModuleController`, `ModuleControllerConfig` | `xewe::Os` (alias `XeWeOs`), `xewe::OsConfig` |
-| `xewe::os::Module`, `xewe::os::System` | `xewe::Module`, `xewe::System` |
-| `controller.xewe_cli` | `os.cli` |
-| protected `Module::controller` | `Module::os`; name the constructor's Os parameter `host` so `[this]` handlers use `os` directly (a parameter named `os` would hide the member) |
-| global `AsyncTimer<T>` | `xewe::AsyncTimer<T>` |
-| `depends_libraries=XeWeOS (>=0.1.0)` | `XeWeCore (>=2.0.0)` |
-
-Behaviour is unchanged except that the default `OsConfig::url` printed in the boot header now
-points to `https://github.com/xewe-labs/xewe-os-core`.
+Levels 1 and 2 need nothing but the IDE. The other examples (`11_Utils` … `15_Os`) show one part
+each; see [`examples/`](examples/README.md).
 
 ## Documentation
 
-The full reference is in [`doc/`](doc/README.md). Rules for coding agents: [`doc/AGENTS.md`](doc/AGENTS.md).
+[`doc/`](doc/README.md) explains what the core is and why it is built this way, then documents
+every public type, command and stored key. Coming from the five 1.0.0 libraries (XeWeOS and
+friends): [`doc/migrating-from-1.md`](doc/migrating-from-1.md).
 
 ## License
 

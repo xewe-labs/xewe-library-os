@@ -11,19 +11,20 @@ pytest files run on a real board through the `xewe-os-tools` pytest plugin (fixt
 | `test_prompts.py` | `get_yn`/`get_core` via `$buttons disable`: n, y (+ enable), one typo re-prompts / second invalid answer cancels, 2 × 15 s timeout cancels, type-ahead discard |
 | `test_nvs_persistence.py` | button mapping, schedule and enable flags across `$system restart` |
 | `test_soak_short.py` | 200 mixed commands, heap sampled every 20 |
-| `test_hooks_*`, `test_recovery_*`, `test_soak_mixed.py` | later waves (see their docstrings; hooks need `XEWE_HWTEST_DEFINES=XEWE_TESTING=1`) |
+| `test_hooks_*` | `$test` hooks: NVS, FlexData, parsers, prompts, tokenizer, heap; need `XEWE_HWTEST_DEFINES=XEWE_TESTING=1` |
+| `test_recovery_*`, `test_soak_mixed.py` | input flood, restart cycles, NVS wipe (destructive, `XEWE_HWTEST_DESTRUCTIVE=1`), mixed soak; see their docstrings |
 
 `conftest.py` adds the `cli` fixture (run a command and collect the reply, raw writes, heap/uptime,
 restart + boot wait, clear button/schedule tables) and `csv_writer`.
 
-## Run (from an xewe project, e.g. the phase-2 harness)
+## Run (from an xewe project)
 
 `xewe test` always collects the project's and the modules' `tests/`; pass the files after `--`
 and deselect the module tests by node-id prefix (`--ignore` does not drop explicit roots):
 
 ```sh
-H=/home/user/wip/xewe-labs/migration/phase_2/hw-s3
-D=/home/user/wip/xewe-labs/done/xewe-os-core/tests/board
+H=<xewe project with a board attached>
+D=<this repository>/tests/board
 cd $H
 XEWE_HWTEST_LOG_DIR=/path/to/logs \
 flock $H/.board.lock build/tools/.venv/bin/python -m xewe test --chip s3 --require-board -- \
@@ -34,8 +35,10 @@ flock $H/.board.lock build/tools/.venv/bin/python -m xewe test --chip s3 --requi
 
 `XEWE_HWTEST_LOG_DIR` (optional) receives heap/uptime CSVs (`<HHMM>-heap-*.csv`).
 
-Preconditions: board provisioned, all six modules enabled, Wi-Fi connected, GPIO
-`XEWE_TEST_BUTTONS_PIN` (default 4) free. The tests restart the board several times
+Preconditions: board provisioned; buttons, pins, wifi, time, scheduler and web-interface enabled
+(other modules may be present: the status/help tests check order and the required set, not an
+exact list); Wi-Fi connected; GPIO `XEWE_TEST_BUTTONS_PIN` (default 14) free. Not 4 on an S3 image
+with the fan module: the fan claims GPIO 4-7 at boot. The tests restart the board several times
 (`$system restart`, `$buttons disable`/`enable`) and remove **all** button mappings and
 schedules they find. They never run `$system reset` or touch Wi-Fi settings.
 Runtime about 4 min 10 s on an ESP32-S3.

@@ -115,8 +115,8 @@ template <typename T> bool read_flex (std::string_view ns, std::string_view key,
 ```
 
 Persist a whole struct. `T` must derive from `xewe::FlexData<T>` — see
-[flexdata.md](flexdata.md) — or the call fails to compile. (The `static_assert` messages mention
-`Nvs::save<T>()` and `Nvs::load<T>()`, names that no longer exist; they mean these two.)
+[flexdata.md](flexdata.md) — or the call fails to compile. (The `static_assert` messages say
+`Nvs::save<T>()` and `Nvs::load<T>()`; they mean these two.)
 
 `write_flex` is `write_blob(ns, key, obj.to_blob())`. `read_flex` returns `false` when the key is
 missing **and** when the stored blob does not decode — and in the second case `out` has already

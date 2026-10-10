@@ -96,7 +96,7 @@ TEST(cli_edge_help_forms) {
 }
 
 TEST(cli_edge_errors_have_no_blank_line) {
-    // wave-1 finding 4: printf() already ends the line; Cli formats added a second CRLF
+    // printf() already ends the line: an error message must not add a second CRLF
     Fx f;
     f.add("t", "one", 1);
     const char* lines[] = {"$nosuch", "$t nosuch", "$t one", "$t \"\""};
@@ -174,8 +174,8 @@ TEST(cli_edge_nested_execute) {
 }
 
 TEST(cli_edge_command_removes_its_own_group) {
-    // the running std::function must survive its group being erased (use-after-free on HEAD;
-    // visible under -fsanitize=address)
+    // the running std::function must survive its group being erased (without the copy this is a
+    // use-after-free, visible under -fsanitize=address)
     Fx f;
     auto state = std::make_shared<std::string>("alive");
     std::string seen;

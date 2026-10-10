@@ -2,7 +2,6 @@
 
 import re
 
-GROUPS = ["buttons", "pins", "schedule", "system", "time", "web_interface", "wifi"]
 HEADER_RX = re.compile(r"^\|\s+(.+) Commands \[(\w+)\]\s+\|$")
 
 
@@ -11,10 +10,17 @@ def headers(lines):
 
 
 def test_help_lists_every_group_in_order(cli):
-    """Cli::print_all_commands: one table per group with commands, sorted by id (std::map)."""
+    """Cli::print_all_commands: one table per group with commands, sorted by id (std::map).
+
+    The group set depends on the image (testing v1: 9 modules + the template's your_module and
+    your_mod_full, plus `test` on a hooks image), so the test checks the order, the groups the
+    core tests need, and `test` exactly when the hooks are built in."""
     out = cli.run("$help", quiet=1.0)
-    assert headers(out) == GROUPS
-    assert sum("| Command " in l for l in out) == len(GROUPS)
+    groups = headers(out)
+    assert groups == sorted(set(groups)), groups
+    assert set(cli.required_groups) <= set(groups), groups
+    assert ("test" in groups) == cli.hooks, groups
+    assert sum("| Command " in l for l in out) == len(groups)
 
 
 def test_group_help_forms(cli):
@@ -71,7 +77,7 @@ def test_unterminated_quote(cli):
 def test_quoted_args_with_spaces_and_escapes(cli):
     """Cli::tokenize: quoted arg keeps spaces, \\" becomes ", round-trips through $buttons add/status."""
     cli.clear_buttons()
-    out = cli.run(f'$buttons add {4} "$system \\"a b\\" status" pullup on_press 50')
+    out = cli.run(f'$buttons add {cli.test_pin} "$system \\"a b\\" status" pullup on_press 50')
     assert "Successfully added button mapping." in out
     rows = [l for l in cli.run("$buttons status") if l.strip().startswith("| 0 ")]
     assert rows and '$system "a b" status' in rows[0], rows

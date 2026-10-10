@@ -1,5 +1,4 @@
-// Reference demo: typed NVS values and a FlexData struct that survive a reboot.
-// XeWeCore Nvs: typed values and a whole struct (including nested vectors)
+// Reference demo, XeWeCore Nvs: typed values and a whole struct (including nested vectors)
 // that survive a reboot. Uses plain Serial: Nvs does not depend on SerialPort.
 #include <XeWeCore.h>
 

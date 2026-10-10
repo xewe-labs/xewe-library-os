@@ -47,8 +47,7 @@ on a real UART and care about boot time.
 
 **`tx_buffer_size` and `rx_buffer_size` are applied on ESP32 only.** It is the only supported core
 that lets a sketch resize the UART/CDC ring buffers; everywhere else the core's own fixed buffers
-are used and the two fields are ignored. Build with `-DXEWE_SERIAL_HAS_BUFFER_SIZING=1` to force
-the calls on a core you know provides them.
+are used and the two fields are ignored (the calls are behind `ARDUINO_ARCH_ESP32`).
 
 Buffer sizes must be set before `Serial.begin`, which is why they live here and cannot be changed
 afterwards.

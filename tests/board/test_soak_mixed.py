@@ -1,4 +1,4 @@
-"""Wave 3: mixed-traffic soak (``soak.py``) on the session console.
+"""Mixed-traffic soak (``soak.py``) on the session console.
 
 Steady ~1 command/s from every module and the core error paths, a burst of 4 back-to-back lines
 every 15th slot, ``$wifi status`` every 30 s, heap/uptime sampled every 20 slots. Duration:
