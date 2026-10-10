@@ -271,46 +271,25 @@ bool Module::requirements_enabled(bool verbose) const {
 }
 
 void Module::register_generic_commands() {
-    register_command(Command{
-        "status",
-        "Get module status",
-        std::string("$") + id + " status",
-        0,
-        [this](xewe::span<const std::string>) {
-            status(true);
-        }
-    });
-
-    register_command(Command{
-        "reset",
-        "Reset the module",
-        std::string("$") + id + " reset",
-        0,
-        [this](xewe::span<const std::string>) {
-            reset(true, true);
-        }
-    });
-
-    if (can_be_disabled) {
-        register_command(Command{
-            "enable",
-            "Enable this module",
-            std::string("$") + id + " enable",
-            0,
-            [this](xewe::span<const std::string>) {
-                enable(true, true);
-            }
-        });
-
-        register_command(Command{
-            "disable",
-            "Disable this module",
-            std::string("$") + id + " disable",
-            0,
-            [this](xewe::span<const std::string>) {
-                disable(true, true);
-            }
-        });
+    static constexpr struct {
+        const char* name;
+        const char* description;
+    } kCommands[] = {
+        {"status", "Get module status"},
+        {"reset", "Reset the module"},
+        {"enable", "Enable this module"},
+        {"disable", "Disable this module"},
+    };
+    // enable and disable only for a module that can be disabled
+    const std::size_t count = can_be_disabled ? 4 : 2;
+    for (std::size_t i = 0; i < count; ++i) {
+        register_command(Command{kCommands[i].name, kCommands[i].description, "$" + id + " " + kCommands[i].name, 0,
+                                 [this, i](xewe::span<const std::string>) {
+                                     if (i == 0) status(true);
+                                     else if (i == 1) reset(true, true);
+                                     else if (i == 2) enable(true, true);
+                                     else disable(true, true);
+                                 }});
     }
 }
 
@@ -400,7 +379,7 @@ void Module::settings_command(std::size_t which, xewe::span<const std::string> a
         const Settings    table = settings();
         const SettingDef* row   = table.find(args[0]);
         if (row) os.serial.printf("%s=%s", row->key, table.value(*row).c_str());
-        else     os.serial.printf("! $%s: no setting '%s' (see $%s schema)", id.c_str(), args[0].c_str(), id.c_str());
+        else     os.serial.printf("! $%s: no setting '%.*s' (see $%s schema)", id.c_str(), int(args[0].size()), args[0].data(), id.c_str());
     } else {
         SchemaOut out(os.serial);
         print_schema(out);

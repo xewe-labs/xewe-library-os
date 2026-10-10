@@ -125,7 +125,7 @@ public:
                                                                   const bool       default_value = false,
                                                                   std::optional<std::reference_wrapper<bool>> success_sink = std::nullopt);
     uint8_t                      get_menu_choice                 (std::string_view                            prompt        = {},
-                                                                  const std::vector<std::string>              options       = {},
+                                                                  const std::vector<std::string>&             options       = {},
                                                                   const uint8_t                               min_value     = std::numeric_limits<uint8_t>::min(),
                                                                   const uint8_t                               max_value     = std::numeric_limits<uint8_t>::max(),
                                                                   const uint16_t                              retry_count   = 0,
@@ -142,7 +142,6 @@ private:
                                                                   ...);
     bool                         read_line_with_timeout          (std::string&   out,
                                                                   const uint32_t timeout_ms);
-    void                         write_line_crlf                 (std::string_view s);
 
     template <typename Ret, typename CheckFn>
     Ret                          get_core                        (std::string_view prompt,

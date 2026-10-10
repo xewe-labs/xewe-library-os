@@ -62,6 +62,40 @@ void SerialPort::push_line() {
     input_buffer_pos = 0;
 }
 
+namespace {
+
+// the layout of print(): each '\n'-separated line (trailing '\r' dropped) is wrapped when
+// message_width > 0 and boxed; CRLF between the pieces, `end` after the last one
+void append_text(std::string& out,
+                 std::string_view message,
+                 std::string_view end,
+                 std::string_view edge_character,
+                 const char text_align,
+                 const char wrap_mode,
+                 const uint16_t message_width,
+                 const uint16_t margin_l,
+                 const uint16_t margin_r) {
+    const auto lines_sv = xewe::str::split_lines_sv(message, '\n');
+    const bool use_wrap = (message_width > 0);
+
+    for (std::size_t i = 0; i < lines_sv.size(); ++i) {
+        std::string_view base_line = lines_sv[i];
+        if (!base_line.empty() && base_line.back() == '\r') base_line.remove_suffix(1);
+
+        const std::vector<std::string> chunks = !use_wrap ? std::vector<std::string>{std::string(base_line)}
+            : (wrap_mode == 'c' || wrap_mode == 'C') ? xewe::str::wrap_fixed(base_line, message_width)
+            : xewe::str::wrap_words(base_line, message_width);
+
+        for (std::size_t j = 0; j < chunks.size(); ++j) {
+            out += xewe::str::compose_box_line(chunks[j], edge_character, message_width, margin_l, margin_r, text_align);
+            const bool is_last = (i + 1 == lines_sv.size()) && (j + 1 == chunks.size());
+            out.append(is_last ? end : std::string_view(xewe::str::kCRLF));
+        }
+    }
+}
+
+} // namespace
+
 // printers
 void SerialPort::print(std::string_view message,
                        std::string_view end,
@@ -71,34 +105,9 @@ void SerialPort::print(std::string_view message,
                        const uint16_t message_width,
                        const uint16_t margin_l,
                        const uint16_t margin_r) {
-    auto       lines_sv = xewe::str::split_lines_sv(message, '\n');
-    const bool use_wrap = (message_width > 0);
-
-    for (std::size_t i = 0; i < lines_sv.size(); ++i) {
-        std::string base_line(lines_sv[i]);
-        xewe::str::rtrim_cr(base_line);
-
-        std::vector<std::string> chunks = use_wrap
-                                              ? ((wrap_mode == 'c' || wrap_mode == 'C')
-                                                        ? xewe::str::wrap_fixed(base_line, message_width)
-                                                        : xewe::str::wrap_words(base_line, message_width)
-                                              )
-                                              : std::vector<std::string>{base_line};
-
-        for (std::size_t j = 0; j < chunks.size(); ++j) {
-            const bool  is_last = (i + 1 == lines_sv.size()) && (j + 1 == chunks.size());
-            std::string out     = xewe::str::compose_box_line(chunks[j], edge_character,
-                message_width, margin_l, margin_r, text_align
-            );
-            Serial.write(reinterpret_cast<const uint8_t*>(out.data()), out.size());
-            if (is_last) {
-                if (!end.empty())
-                    Serial.write(reinterpret_cast<const uint8_t*>(end.data()), end.size());
-            } else {
-                Serial.write(reinterpret_cast<const uint8_t*>(xewe::str::kCRLF), 2);
-            }
-        }
-    }
+    std::string out;
+    append_text(out, message, end, edge_character, text_align, wrap_mode, message_width, margin_l, margin_r);
+    print_raw(out);
 }
 
 void SerialPort::printf_fmt(std::string_view end,
@@ -110,103 +119,31 @@ void SerialPort::printf_fmt(std::string_view end,
                             const uint16_t margin_r,
                             const char* fmt,
                             ...) {
-    if (!fmt) {
-        print("", end, edge_character, text_align, wrap_mode, message_width, margin_l, margin_r);
-        return;
-    }
-
     va_list ap;
     va_start(ap, fmt);
-    va_list ap2;
-    va_copy(ap2, ap);
-    const int needed = vsnprintf(nullptr, 0, fmt, ap);
+    const std::string msg = xewe::str::vformat(fmt, ap);
     va_end(ap);
-
-    std::string msg;
-    if (needed > 0) {
-        std::vector<char> buf(static_cast<std::size_t>(needed) + 1u);
-        vsnprintf(buf.data(), buf.size(), fmt, ap2);
-        msg.assign(buf.data(), static_cast<std::size_t>(needed));
-    }
-    va_end(ap2);
-
     print(msg, end, edge_character, text_align, wrap_mode, message_width, margin_l, margin_r);
 }
 
 void SerialPort::printf(const char* fmt,
                         ...) {
-    if (!fmt) {
-        print();
-        return;
-    }
-
     va_list ap;
     va_start(ap, fmt);
-    va_list ap2;
-    va_copy(ap2, ap);
-    const int needed = vsnprintf(nullptr, 0, fmt, ap);
+    const std::string msg = xewe::str::vformat(fmt, ap);
     va_end(ap);
-
-    std::string msg;
-    if (needed > 0) {
-        std::vector<char> buf(static_cast<std::size_t>(needed) + 1u);
-        vsnprintf(buf.data(), buf.size(), fmt, ap2);
-        msg.assign(buf.data(), static_cast<std::size_t>(needed));
-    }
-    va_end(ap2);
-
     print(msg);
 }
 
 void SerialPort::print_separator(const uint16_t total_width,
                                  std::string_view fill,
                                  std::string_view edge_character) {
-    std::string line;
-    if (total_width == 0) {
-        line.clear();
-    } else if (edge_character.empty()) {
-        // Full-width fill pattern
-        line = xewe::str::repeat_pattern(fill, total_width);
-    } else {
-        const std::size_t e = edge_character.size();
-        if (total_width <= e) {
-            line.assign(edge_character.substr(0, total_width));
-        } else if (total_width <= 2 * e) {
-            // Not enough room for interior
-            line.assign(edge_character.substr(0, total_width));
-        } else {
-            const uint16_t inner = static_cast<uint16_t>(total_width - 2 * e);
-            line.reserve(total_width);
-            line.append(edge_character);
-            line += xewe::str::repeat_pattern(fill, inner);
-            line.append(edge_character);
-        }
-    }
-    write_line_crlf(line);
+    println_raw(xewe::str::make_rule_line(total_width, fill, edge_character));
 }
 
 void SerialPort::print_spacer(const uint16_t total_width,
                               std::string_view edge_character) {
-    std::string line;
-    if (total_width == 0) {
-        line.clear();
-    } else if (edge_character.empty()) {
-        line.assign(static_cast<std::size_t>(total_width), ' ');
-    } else {
-        const std::size_t e = edge_character.size();
-        if (total_width <= e) {
-            line.assign(edge_character.substr(0, total_width));
-        } else if (total_width <= 2 * e) {
-            line.assign(edge_character.substr(0, total_width));
-        } else {
-            const uint16_t inner = static_cast<uint16_t>(total_width - 2 * e);
-            line.reserve(total_width);
-            line.append(edge_character);
-            line.append(inner, ' ');
-            line.append(edge_character);
-        }
-    }
-    write_line_crlf(line);
+    println_raw(xewe::str::make_spacer_line(total_width, edge_character));
 }
 
 void SerialPort::print_header(std::string_view message,
@@ -254,82 +191,12 @@ std::string SerialPort::render_table(const std::vector<std::vector<std::string_v
 
     std::string output;
 
-    auto        append_line_crlf = [&](std::string_view line) {
-        output.append(line.data(), line.size());
+    auto append_line_crlf = [&](std::string_view line) {
+        output.append(line);
         output.append(xewe::str::kCRLF);
     };
 
-    auto append_separator = [&](const uint16_t   total_width,
-                                std::string_view fill,
-                                std::string_view separator_edge) {
-        std::string line;
-        if (total_width == 0) {
-            line.clear();
-        } else if (separator_edge.empty()) {
-            line = xewe::str::repeat_pattern(fill, total_width);
-        } else {
-            const std::size_t e = separator_edge.size();
-            if (total_width <= e) {
-                line.assign(separator_edge.substr(0, total_width));
-            } else if (total_width <= 2 * e) {
-                line.assign(separator_edge.substr(0, total_width));
-            } else {
-                const uint16_t inner = static_cast<uint16_t>(total_width - 2 * e);
-                line.reserve(total_width);
-                line.append(separator_edge);
-                line += xewe::str::repeat_pattern(fill, inner);
-                line.append(separator_edge);
-            }
-        }
-        append_line_crlf(line);
-    };
-
-    auto append_formatted = [&](std::string_view message,
-                                std::string_view end,
-                                std::string_view line_edge,
-                                const char       text_align,
-                                const char       wrap_mode,
-                                const uint16_t   message_width,
-                                const uint16_t   margin_l,
-                                const uint16_t   margin_r) {
-        auto       lines_sv = xewe::str::split_lines_sv(message, '\n');
-        const bool use_wrap = (message_width > 0);
-
-        for (std::size_t i = 0; i < lines_sv.size(); ++i) {
-            std::string base_line(lines_sv[i]);
-            xewe::str::rtrim_cr(base_line);
-
-            std::vector<std::string> chunks = use_wrap
-                                                  ? ((wrap_mode == 'c' || wrap_mode == 'C')
-                                                            ? xewe::str::wrap_fixed(base_line, message_width)
-                                                            : xewe::str::wrap_words(base_line, message_width)
-                                                  )
-                                                  : std::vector<std::string>{base_line};
-
-            for (std::size_t j = 0; j < chunks.size(); ++j) {
-                const bool is_last =
-                    (i + 1 == lines_sv.size()) && (j + 1 == chunks.size());
-
-                output += xewe::str::compose_box_line(chunks[j],
-                    line_edge,
-                    message_width,
-                    margin_l,
-                    margin_r,
-                    text_align
-                );
-
-                if (is_last) {
-                    output.append(end.data(), end.size());
-                } else {
-                    output.append(xewe::str::kCRLF);
-                }
-            }
-        }
-    };
-
-    // 1. Calculate Column Widths
-    // The column must be wide enough for the longest line in a multi-line cell,
-    // not merely the total length of the cell string.
+    // column width: the longest line of a multi-line cell plus one space each side, capped
     std::size_t num_cols = 0;
     for (const auto& row : table) num_cols = std::max(num_cols, row.size());
 
@@ -337,118 +204,44 @@ std::string SerialPort::render_table(const std::vector<std::vector<std::string_v
 
     for (const auto& row : table) {
         for (std::size_t c = 0; c < row.size(); ++c) {
-            std::string_view cell         = row[c];
-            std::size_t      max_line_len = 0;
+            std::size_t max_line_len = 0;
+            for (std::string_view line : xewe::str::split_lines_sv(row[c], '\n')) max_line_len = std::max(max_line_len, line.size());
 
-            std::size_t      start        = 0;
-            while (start <= cell.length()) {
-                std::size_t end = cell.find('\n', start);
-                if (end == std::string_view::npos) end = cell.length();
-
-                const std::size_t segment_len = end - start;
-                if (segment_len > max_line_len) max_line_len = segment_len;
-
-                if (end == cell.length()) break;
-                start = end + 1;
-            }
-
-            std::size_t req_width = max_line_len + 2;
-            if (req_width > max_col_width) req_width = max_col_width;
-
-            if (req_width > col_widths[c]) {
-                col_widths[c] = static_cast<uint16_t>(req_width);
-            }
+            const std::size_t req_width = std::min<std::size_t>(max_line_len + 2, max_col_width);
+            if (req_width > col_widths[c]) col_widths[c] = static_cast<uint16_t>(req_width);
         }
     }
 
-    // 2. Calculate Total Table Width
     std::size_t total_table_width = edge_character.size();
-    for (const auto width : col_widths) {
-        total_table_width += width + edge_character.size();
-    }
+    for (const auto width : col_widths) total_table_width += width + edge_character.size();
 
-    // Helper: append a complex divider such as +-----+-----+.
+    // +-----+-----+
     auto append_complex_divider = [&]() {
-        std::string line;
-        line.reserve(total_table_width);
-        line.append(cross_edge_character);
-
+        std::string line(cross_edge_character);
         for (std::size_t c = 0; c < num_cols; ++c) {
-            for (std::size_t k = 0; k < col_widths[c]; ++k) {
-                if (!sep_fill.empty()) {
-                    line += sep_fill[k % sep_fill.size()];
-                } else {
-                    line += '-';
-                }
-            }
+            for (std::size_t k = 0; k < col_widths[c]; ++k) line += sep_fill.empty() ? '-' : sep_fill[k % sep_fill.size()];
             line.append(cross_edge_character);
         }
-
         append_line_crlf(line);
     };
 
-    // Helper: wrap text while respecting explicit newlines.
-    auto get_wrapped_lines = [&](std::string_view text,
-                                 uint16_t         width) -> std::vector<std::string> {
+    // word-wrapped lines of a cell, explicit newlines kept
+    auto get_wrapped_lines = [](std::string_view text, uint16_t width) {
         std::vector<std::string> result;
         if (width <= 2) width = 3;
-        const uint16_t content_width = width - 2;
-
-        std::size_t    start         = 0;
-        if (text.empty()) return {""};
-
-        while (start <= text.length()) {
-            std::size_t end = text.find('\n', start);
-            if (end == std::string_view::npos) end = text.length();
-
-            const std::string_view segment = text.substr(start, end - start);
-
-            if (segment.empty()) {
-                result.push_back("");
-            } else {
-                std::vector<std::string> segment_lines =
-                    xewe::str::wrap_words(std::string(segment), content_width);
-
-                if (segment_lines.empty()) {
-                    result.push_back("");
-                } else {
-                    result.insert(result.end(),
-                        segment_lines.begin(),
-                        segment_lines.end()
-                    );
-                }
-            }
-
-            if (end == text.length()) break;
-            start = end + 1;
+        for (std::string_view segment : xewe::str::split_lines_sv(text, '\n')) {
+            std::vector<std::string> segment_lines = xewe::str::wrap_words(segment, width - 2);
+            result.insert(result.end(), segment_lines.begin(), segment_lines.end());
         }
-
         return result;
     };
 
-    // 3. Render Header
     if (!header_content.empty()) {
-        append_separator(static_cast<uint16_t>(total_table_width),
-            sep_fill,
-            cross_edge_character
-        );
-
-        const uint16_t header_content_width = static_cast<uint16_t>(
-            total_table_width - (edge_character.size() * 2)
-        );
-
-        append_formatted(header_content,
-            xewe::str::kCRLF,
-            edge_character,
-            'c',
-            'w',
-            header_content_width,
-            0,
-            0
-        );
+        append_line_crlf(xewe::str::make_rule_line(static_cast<uint16_t>(total_table_width), sep_fill, cross_edge_character));
+        append_text(output, header_content, xewe::str::kCRLF, edge_character, 'c', 'w',
+            static_cast<uint16_t>(total_table_width - (edge_character.size() * 2)), 0, 0);
     }
 
-    // 4. Render Table Body
     append_complex_divider();
 
     for (const auto& row : table) {
@@ -456,40 +249,21 @@ std::string SerialPort::render_table(const std::vector<std::vector<std::string_v
         std::size_t                           max_row_height = 0;
 
         for (std::size_t c = 0; c < num_cols; ++c) {
-            const std::string_view   entry = (c < row.size()) ? row[c] : "";
-            std::vector<std::string> wrapped =
-                get_wrapped_lines(entry, col_widths[c]);
-
-            if (wrapped.empty()) wrapped.push_back("");
-
-            max_row_height = std::max(max_row_height, wrapped.size());
-            row_blocks.push_back(std::move(wrapped));
+            row_blocks.push_back(get_wrapped_lines(c < row.size() ? row[c] : std::string_view{}, col_widths[c]));
+            max_row_height = std::max(max_row_height, row_blocks.back().size());
         }
 
         for (std::size_t h = 0; h < max_row_height; ++h) {
-            std::string line_out;
-            line_out.reserve(total_table_width);
-            line_out.append(edge_character);
-
+            std::string line_out(edge_character);
             for (std::size_t c = 0; c < num_cols; ++c) {
-                const std::string segment =
-                    (h < row_blocks[c].size()) ? row_blocks[c][h] : "";
-
+                const std::string_view segment    = h < row_blocks[c].size() ? std::string_view(row_blocks[c][h]) : std::string_view{};
+                const std::size_t      target_len = static_cast<std::size_t>(col_widths[c]) - 2;
                 line_out += ' ';
                 line_out += segment;
-
-                const std::size_t current_len = segment.length();
-                const std::size_t target_len =
-                    static_cast<std::size_t>(col_widths[c]) - 2;
-
-                if (target_len > current_len) {
-                    line_out.append(target_len - current_len, ' ');
-                }
-
+                if (target_len > segment.size()) line_out.append(target_len - segment.size(), ' ');
                 line_out += ' ';
                 line_out += edge_character;
             }
-
             append_line_crlf(line_out);
         }
 
@@ -635,7 +409,7 @@ bool SerialPort::get_yn(std::string_view prompt,
 }
 
 uint8_t SerialPort::get_menu_choice(std::string_view prompt,
-                                    const std::vector<std::string> options,
+                                    const std::vector<std::string>& options,
                                     const uint8_t min_value,
                                     const uint8_t max_value,
                                     const uint16_t retry_count,
@@ -708,42 +482,10 @@ void SerialPort::println_raw(std::string_view message) {
 
 void SerialPort::printf_raw(const char* fmt,
                             ...) {
-    if (!fmt) return;
-
-    bool has_spec = false;
-    for (const char* p = fmt; *p; ++p) {
-        if (*p == '%') {
-            if (*(p + 1) == '%') {
-                ++p;
-                continue;
-            }
-            has_spec = true;
-            break;
-        }
-    }
-    if (!has_spec) {
-        std::size_t n = strlen(fmt);
-        if (n) Serial.write(reinterpret_cast<const uint8_t*>(fmt), n);
-        return;
-    }
-
     va_list ap;
     va_start(ap, fmt);
-    va_list ap2;
-    va_copy(ap2, ap);
-    int needed = vsnprintf(nullptr, 0, fmt, ap);
+    print_raw(xewe::str::vformat(fmt, ap));
     va_end(ap);
-
-    if (needed <= 0) {
-        va_end(ap2);
-        return;
-    }
-
-    std::vector<char> buf(static_cast<std::size_t>(needed) + 1u);
-    vsnprintf(buf.data(), buf.size(), fmt, ap2);
-    va_end(ap2);
-
-    Serial.write(reinterpret_cast<const uint8_t*>(buf.data()), static_cast<std::size_t>(needed));
 }
 
 bool SerialPort::read_line_with_timeout(std::string& out,
@@ -760,11 +502,6 @@ bool SerialPort::read_line_with_timeout(std::string& out,
         }
         yield();
     }
-}
-
-void SerialPort::write_line_crlf(std::string_view s) {
-    Serial.write(reinterpret_cast<const uint8_t*>(s.data()), s.size());
-    Serial.write(reinterpret_cast<const uint8_t*>(xewe::str::kCRLF), 2);
 }
 
 template <typename T>

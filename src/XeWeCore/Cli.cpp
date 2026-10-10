@@ -4,13 +4,40 @@
 
 #include "Cli.h"
 
-#include <algorithm>
 #include <cctype>
 
 #include "Utils.h"
 
 
 namespace xewe {
+
+namespace {
+
+std::string trim_copy(std::string_view value) {
+    std::size_t begin = 0;
+    std::size_t end = value.size();
+    while (begin < end && std::isspace(static_cast<unsigned char>(value[begin]))) ++begin;
+    while (end > begin && std::isspace(static_cast<unsigned char>(value[end - 1]))) --end;
+    return std::string(value.substr(begin, end - begin));
+}
+
+// trimmed and lower-cased: the key of a group id
+std::string group_key(std::string_view id) {
+    std::string key = trim_copy(id);
+    for (char& c : key) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return key;
+}
+
+// ASCII case-insensitive equality, no allocation
+bool iequals(std::string_view a, std::string_view b) {
+    if (a.size() != b.size()) return false;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        if (std::tolower(static_cast<unsigned char>(a[i])) != std::tolower(static_cast<unsigned char>(b[i]))) return false;
+    }
+    return true;
+}
+
+} // namespace
 
 Cli::Cli(SerialPort& serial)
     : serial(serial)
@@ -25,7 +52,7 @@ void Cli::loop() {
 
 CommandGroup& Cli::add_group(std::string_view id,
                                          std::string_view name) {
-    const std::string key = lower_copy(trim_copy(id));
+    const std::string key = group_key(id);
     CommandGroup&     group = groups[key];
     group.id                = key;
     group.name              = std::string(name);
@@ -34,7 +61,7 @@ CommandGroup& Cli::add_group(std::string_view id,
 
 bool Cli::add_command(std::string_view group_id,
                                   Command command) {
-    auto it = groups.find(lower_copy(trim_copy(group_id)));
+    auto it = groups.find(group_key(group_id));
     if (it == groups.end() || name_error(command.name, false) || !command.function) return false;
 
     it->second.commands.push_back(std::move(command));
@@ -47,17 +74,17 @@ const char* Cli::name_error(std::string_view name, bool is_module_id) {
         if (std::isspace(c)) return "contains whitespace";
     }
     if (!is_module_id) return nullptr;
-    if (lower_copy(name) == "help") return "is reserved ($help)";
+    if (iequals(name, "help")) return "is reserved ($help)";
     if (name.size() > 15) return "is longer than 15 characters (NVS namespace limit)";
     return nullptr;
 }
 
 bool Cli::remove_group(std::string_view id) {
-    return groups.erase(lower_copy(trim_copy(id))) > 0;
+    return groups.erase(group_key(id)) > 0;
 }
 
 const CommandGroup* Cli::get_group(std::string_view id) const {
-    auto it = groups.find(lower_copy(trim_copy(id)));
+    auto it = groups.find(group_key(id));
     return it == groups.end() ? nullptr : &it->second;
 }
 
@@ -69,11 +96,9 @@ bool Cli::execute(std::string_view group_id,
     const CommandGroup* group = get_group(group_id);
     if (group == nullptr) return false;
 
-    const std::string name = lower_copy(command_name);
-
     for (const Command& command : group->commands) {
         if (!command.function)                  continue;
-        if (lower_copy(command.name) != name)   continue;
+        if (!iequals(command.name, command_name)) continue;
         if (args.size() != command.arg_count)   continue;
 
         // call a copy: the command may add/remove commands or groups, which can destroy
@@ -113,15 +138,7 @@ void Cli::execute(std::string_view input_line) const {
 
     if (!tokenize(local, tokens)) return;
 
-    if (tokens.empty()) {
-        serial.print(
-            "Error: Missing command group; usage: $<group> <command> [args...]",
-            xewe::str::kCRLF
-        );
-        return;
-    }
-
-    if (lower_copy(tokens[0]) == "help") {
+    if (iequals(tokens[0], "help")) {
         if (tokens.size() == 1) {
             print_all_commands();
             return;
@@ -173,12 +190,11 @@ void Cli::execute(std::string_view input_line) const {
         return;
     }
 
-    if (lower_copy(tokens[1]) == "help") {
+    if (iequals(tokens[1], "help")) {
         print_help(tokens[0]);
         return;
     }
 
-    const std::string command_name    = lower_copy(tokens[1]);
     const Command*    matched_command = nullptr;
 
     const std::size_t provided_arg_count = tokens.size() - 2;
@@ -190,7 +206,7 @@ void Cli::execute(std::string_view input_line) const {
             continue;
         }
 
-        if (lower_copy(command.name) == command_name) {
+        if (iequals(command.name, tokens[1])) {
             if (matched_command == nullptr) matched_command = &command;
             if (command.arg_count == provided_arg_count) {
                 matched_command = &command;
@@ -222,23 +238,16 @@ void Cli::execute(std::string_view input_line) const {
         if (!matched_command->sample_usage.empty()) {
             serial.printf(
                 "Usage: %s",
-                std::string(matched_command->sample_usage).c_str()
+                matched_command->sample_usage.c_str()
             );
         }
 
         return;
     }
 
-    std::vector<std::string> args;
-    args.reserve(provided_arg_count);
-
-    for (std::size_t i = 2; i < tokens.size(); ++i) {
-        args.push_back(tokens[i]);
-    }
-
     // call a copy (see execute(group, name, args)); `commands` may be invalid afterwards
     const command_function_t function = matched_command->function;
-    function(xewe::span<const std::string>(args.data(), args.size()));
+    function(xewe::span<const std::string>(tokens.data() + 2, provided_arg_count));
 }
 
 void Cli::print_help(std::string_view group_id) const {
@@ -305,40 +314,6 @@ void Cli::print_all_commands() const {
             print_help(id);
         }
     }
-}
-
-std::string Cli::trim_copy(std::string_view value) {
-    const auto is_space = [](unsigned char c) {
-        return std::isspace(c) != 0;
-    };
-
-    std::size_t begin = 0;
-    std::size_t end   = value.size();
-
-    while (begin < end && is_space(static_cast<unsigned char>(value[begin]))) {
-        ++begin;
-    }
-
-    while (end > begin && is_space(static_cast<unsigned char>(value[end - 1]))) {
-        --end;
-    }
-
-    return std::string(value.substr(begin, end - begin));
-}
-
-std::string Cli::lower_copy(std::string_view value) {
-    std::string out(value.begin(), value.end());
-
-    std::transform(
-        out.begin(),
-        out.end(),
-        out.begin(),
-        [](unsigned char c) {
-            return static_cast<char>(std::tolower(c));
-        }
-    );
-
-    return out;
 }
 
 bool Cli::tokenize(std::string_view input,

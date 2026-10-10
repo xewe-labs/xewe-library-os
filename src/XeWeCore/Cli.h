@@ -72,9 +72,6 @@ private:
     SerialPort&                         serial;
     std::map<std::string, CommandGroup> groups;
 
-    static std::string       trim_copy          (std::string_view value);
-    static std::string       lower_copy         (std::string_view value);
-
     bool                     tokenize           (std::string_view          input,
                                                  std::vector<std::string>& out) const;
 };

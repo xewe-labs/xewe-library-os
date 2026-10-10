@@ -137,7 +137,7 @@ in the numeric prompts.
 
 ```cpp
 uint8_t get_menu_choice(std::string_view               prompt        = {},
-                        const std::vector<std::string> options       = {},
+                        const std::vector<std::string>& options      = {},
                         const uint8_t                  min_value     = std::numeric_limits<uint8_t>::min(),
                         const uint8_t                  max_value     = std::numeric_limits<uint8_t>::max(),
                         const uint16_t                 retry_count   = 0,

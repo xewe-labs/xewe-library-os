@@ -25,22 +25,13 @@ bool Nvs::erase_all() {
 bool Nvs::write_blob(std::string_view ns,
                      std::string_view key,
                      const std::vector<uint8_t>& data) {
-    std::string storage_key = sanitize_name(key);
-    if (storage_key.empty()) return false;
-
-    ScopedHandle    sh;
-    const esp_err_t open_err = open_handle(ns, NVS_READWRITE, sh);
-    if (open_err != ESP_OK) return false;
-
-    const esp_err_t write_err = nvs_set_blob(sh, storage_key.c_str(), data.data(), data.size());
-
-    return commit_and_close(sh, write_err);
+    return write_blob(ns, key, std::span<const uint8_t>(data.data(), data.size()));
 }
 
 bool Nvs::write_blob(std::string_view ns,
                      std::string_view key,
                      std::span<const uint8_t> data) {
-    return write_blob(ns, key, std::vector<uint8_t>(data.begin(), data.end()));
+    return write_value(ns, key, &set_typed<std::span<const uint8_t>>, data.data(), data.size());
 }
 
 std::vector<uint8_t> Nvs::read_blob(std::string_view ns,
@@ -95,6 +86,34 @@ void Nvs::reset_ns(std::string_view ns) {
     const esp_err_t erase_err = nvs_erase_all(sh);
 
     if (!commit_and_close(sh, erase_err)) return;
+}
+
+bool Nvs::write_value(std::string_view ns,
+                      std::string_view key,
+                      setter_t set,
+                      const void* value,
+                      std::size_t size) {
+    const std::string storage_key = sanitize_name(key);
+    if (storage_key.empty()) return false;
+
+    ScopedHandle sh;
+    if (open_handle(ns, NVS_READWRITE, sh) != ESP_OK) return false;
+
+    return commit_and_close(sh, set(sh, storage_key.c_str(), value, size));
+}
+
+bool Nvs::read_value(std::string_view ns,
+                     std::string_view key,
+                     getter_t get,
+                     void* out,
+                     std::size_t size) {
+    const std::string storage_key = sanitize_name(key);
+    if (storage_key.empty()) return false;
+
+    ScopedHandle sh;
+    if (open_handle(ns, NVS_READONLY, sh) != ESP_OK) return false;
+
+    return get(sh, storage_key.c_str(), out, size) == ESP_OK;
 }
 
 bool Nvs::ensure_ready() {

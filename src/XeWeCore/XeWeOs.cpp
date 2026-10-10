@@ -137,6 +137,15 @@ void Os::print_banner() {
 // ---- System --------------------------------------------------------------
 
 
+namespace {
+
+// "AA:BB:CC:DD:EE:FF"
+void format_mac(char (&out)[18], const uint8_t (&mac)[6]) {
+    snprintf(out, sizeof(out), "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+}
+
+} // namespace
+
 System::System(Os& os)
     : Module(os,
           /* id                  */ "system",
@@ -147,30 +156,14 @@ System::System(Os& os)
           /* has_cli_cmds        */ true
     )
 {
-    register_command(Command{
-        "restart",
-        "Restart the ESP",
-        std::string("$") + id + " restart",
-        0,
-        [this](xewe::span<const std::string>) {
-            restart(1000);
-        }
-    });
-
-    register_command(Command{
-        "reboot",
-        "Restart the ESP",
-        std::string("$") + id + " reboot",
-        0,
-        [this](xewe::span<const std::string>) {
-            restart(1000);
-        }
-    });
+    const auto restart_now = [this](xewe::span<const std::string>) { restart(1000); };
+    register_command(Command{"restart", "Restart the ESP", "$" + id + " restart", 0, restart_now});
+    register_command(Command{"reboot", "Restart the ESP", "$" + id + " reboot", 0, restart_now});
 
     register_command(Command{
         "info",
         "Chip and build info",
-        std::string("$") + id + " info",
+        "$" + id + " info",
         0,
         [this](xewe::span<const std::string>) {
             esp_chip_info_t ci;
@@ -178,86 +171,36 @@ System::System(Os& os)
 
             uint8_t mac[6];
             esp_read_mac(mac, ESP_MAC_WIFI_STA);
+            char mac_text[18];
+            format_mac(mac_text, mac);
 
-            std::size_t flash_sz = ESP.getFlashChipSize();
-            uint32_t    flash_hz = ESP.getFlashChipSpeed();
-
-            std::string s;
-            s += "Model ";
-            s += std::to_string(static_cast<int>(ci.model));
-            s += "  Cores ";
-            s += std::to_string(static_cast<int>(ci.cores));
-            s += "  Rev ";
-            s += std::to_string(static_cast<int>(ci.revision));
-            s += "\n";
-
-            s += "IDF ";
-            s += esp_get_idf_version();
-            s += "\n";
-
-            s += "Flash ";
-            s += std::to_string(static_cast<unsigned>(flash_sz));
-            s += " bytes @ ";
-            s += std::to_string(static_cast<unsigned>(flash_hz));
-            s += " Hz\n";
-
-            char macs[18];
-            snprintf(
-                macs,
-                sizeof(macs),
-                "%02X:%02X:%02X:%02X:%02X:%02X",
-                mac[0],
-                mac[1],
-                mac[2],
-                mac[3],
-                mac[4],
-                mac[5]
-            );
-
-            s += "MAC ";
-            s += macs;
-
-            this->os.serial.print(s.c_str(), xewe::str::kCRLF);
+            this->os.serial.printf("Model %d  Cores %d  Rev %d\nIDF %s\nFlash %u bytes @ %u Hz\nMAC %s",
+                static_cast<int>(ci.model), static_cast<int>(ci.cores), static_cast<int>(ci.revision),
+                esp_get_idf_version(),
+                static_cast<unsigned>(ESP.getFlashChipSize()), static_cast<unsigned>(ESP.getFlashChipSpeed()),
+                mac_text);
         }
     });
 
     register_command(Command{
         "set_device_name",
         "Set device name",
-        std::string("$") + id + " set_device_name \"Kitchen Lights\"",
+        "$" + id + " set_device_name \"Kitchen Lights\"",
         1,
         [this](xewe::span<const std::string> args) {
-            if (args.empty() || args[0].empty()) {
-                this->os.serial.print(
-                    ("Usage: $" + id + " set_device_name \"<name>\"").c_str(),
-                    xewe::str::kCRLF
-                );
+            if (args[0].empty()) {
+                this->os.serial.printf("Usage: $%s set_device_name \"<name>\"", id.c_str());
                 return;
             }
-
-            std::string new_name = args[0];
-
-            if (new_name.empty()) {
-                this->os.serial.print(
-                    "Device name cannot be empty",
-                    xewe::str::kCRLF
-                );
-                return;
-            }
-
-            this->os.nvs.write<std::string>(id, "device_name", new_name);
-
-            this->os.serial.print(
-                ("Device name set to: " + new_name).c_str(),
-                xewe::str::kCRLF
-            );
+            this->os.nvs.write<std::string>(id, "device_name", args[0]);
+            this->os.serial.printf("Device name set to: %s", args[0].c_str());
         }
     });
 
     register_command(Command{
         "schema",
         "Settings of every module as JSON lines",
-        std::string("$") + id + " schema",
+        "$" + id + " schema",
         0,
         [this](xewe::span<const std::string>) {
             print_schema_all();
@@ -267,40 +210,25 @@ System::System(Os& os)
     register_command(Command{
         "mac",
         "Print MAC addresses",
-        std::string("$") + id + " mac",
+        "$" + id + " mac",
         0,
         [this](xewe::span<const std::string>) {
-            struct Item {
+            static constexpr struct {
                 const char*    name;
                 esp_mac_type_t type;
-            };
-
-            Item items[] = {
+            } kItems[] = {
                 {"wifi_sta", ESP_MAC_WIFI_STA},
                 {"wifi_ap", ESP_MAC_WIFI_SOFTAP},
                 {"bt", ESP_MAC_BT},
                 {"eth", ESP_MAC_ETH},
             };
 
-            for (const auto& item : items) {
+            for (const auto& item : kItems) {
                 uint8_t mac[6];
-
                 if (esp_read_mac(mac, item.type) == ESP_OK) {
-                    char line[40];
-                    snprintf(
-                        line,
-                        sizeof(line),
-                        "%s %02X:%02X:%02X:%02X:%02X:%02X",
-                        item.name,
-                        mac[0],
-                        mac[1],
-                        mac[2],
-                        mac[3],
-                        mac[4],
-                        mac[5]
-                    );
-
-                    this->os.serial.print(line, xewe::str::kCRLF);
+                    char mac_text[18];
+                    format_mac(mac_text, mac);
+                    this->os.serial.printf("%s %s", item.name, mac_text);
                 }
             }
         }
@@ -309,7 +237,7 @@ System::System(Os& os)
     register_command(Command{
         "uid",
         "Device UID from eFuse base MAC (and SHA256-64)",
-        std::string("$") + id + " uid",
+        "$" + id + " uid",
         0,
         [this](xewe::span<const std::string>) {
             uint8_t mac[6];
@@ -318,15 +246,8 @@ System::System(Os& os)
             uint8_t dig[32];
             mbedtls_sha256(mac, sizeof(mac), dig, 0 /* is224 */);
 
-            this->os.serial.print(
-                ("base_mac " + xewe::str::to_hex(mac, sizeof(mac))).c_str(),
-                xewe::str::kCRLF
-            );
-
-            this->os.serial.print(
-                ("uid64 " + xewe::str::to_hex(dig, 8)).c_str(),
-                xewe::str::kCRLF
-            );
+            this->os.serial.print("base_mac " + xewe::str::to_hex(mac, sizeof(mac)));
+            this->os.serial.print("uid64 " + xewe::str::to_hex(dig, 8));
         }
     });
 }
@@ -392,32 +313,20 @@ void System::reset(const bool verbose,
 
 std::string System::status(const bool verbose) const {
     if (verbose) {
+        const auto& modules = os.get_modules();
+
+        // the table holds views: the status texts must outlive it, so reserve first
+        std::vector<std::string> statuses;
+        statuses.reserve(modules.size());
+
         std::vector<std::vector<std::string_view>> table_data;
         table_data.push_back({"Module Name", "Enabled", "Status"});
-
-        const auto&              modules = os.get_modules();
-
-        std::vector<std::string> string_storage;
-        string_storage.reserve(modules.size() * 2);
-
         for (Module* mod : modules) {
-            if (mod == nullptr) continue;
-
-            std::string_view name = mod->get_name();
-
-            string_storage.push_back(mod->is_enabled() ? "Yes" : "No");
-            std::string_view enabled_view = string_storage.back();
-
-            string_storage.push_back(mod->status(false));
-            std::string_view status_view = string_storage.back();
-
-            table_data.push_back({name, enabled_view, status_view});
+            statuses.push_back(mod->status(false));
+            table_data.push_back({mod->get_name(), mod->is_enabled() ? "Yes" : "No", statuses.back()});
         }
 
-        os.serial.print_table(
-            table_data,
-            "System Status"
-        );
+        os.serial.print_table(table_data, "System Status");
     }
 
     return "System OK";

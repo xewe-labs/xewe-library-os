@@ -74,6 +74,20 @@ private:
 
     static constexpr std::size_t MAX_KEY_LEN      = 15;
 
+    // one typed nvs_set_* / nvs_get_* call; a firmware links only the ones its types use
+    using setter_t = esp_err_t (*)(nvs_handle_t handle, const char* key, const void* value, std::size_t size);
+    using getter_t = esp_err_t (*)(nvs_handle_t handle, const char* key, void* out, std::size_t size);
+
+    template <typename U>
+    static esp_err_t set_typed(nvs_handle_t handle, const char* key, const void* value, std::size_t size);
+    template <typename U>
+    static esp_err_t get_typed(nvs_handle_t handle, const char* key, void* out, std::size_t size);
+
+    // sanitize the key, open, set, commit; false on a rejected key or any NVS error (reported)
+    bool write_value(std::string_view ns, std::string_view key, setter_t set, const void* value, std::size_t size);
+    // sanitize the key, open, get; false on a miss, another stored type, a rejected key or an NVS error
+    bool read_value(std::string_view ns, std::string_view key, getter_t get, void* out, std::size_t size);
+
     struct ScopedHandle {
         nvs_handle_t             handle = 0;
         ScopedHandle() = default;

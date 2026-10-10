@@ -4,8 +4,61 @@
 #pragma once
 
 
-
 namespace xewe {
+
+template <typename U>
+esp_err_t Nvs::set_typed(nvs_handle_t handle, const char* key, const void* value, std::size_t size) {
+    if constexpr (std::is_same_v<U, const char*>) {
+        return nvs_set_str(handle, key, static_cast<const char*>(value));
+    } else if constexpr (std::is_integral_v<U>) {
+        const U v = *static_cast<const U*>(value);
+        if constexpr (std::is_signed_v<U>) {
+            if constexpr (sizeof(U) == 1) return nvs_set_i8(handle, key, static_cast<int8_t>(v));
+            else if constexpr (sizeof(U) == 2) return nvs_set_i16(handle, key, static_cast<int16_t>(v));
+            else if constexpr (sizeof(U) == 4) return nvs_set_i32(handle, key, static_cast<int32_t>(v));
+            else return nvs_set_i64(handle, key, static_cast<int64_t>(v));
+        } else {
+            if constexpr (sizeof(U) == 1) return nvs_set_u8(handle, key, static_cast<uint8_t>(v));
+            else if constexpr (sizeof(U) == 2) return nvs_set_u16(handle, key, static_cast<uint16_t>(v));
+            else if constexpr (sizeof(U) == 4) return nvs_set_u32(handle, key, static_cast<uint32_t>(v));
+            else return nvs_set_u64(handle, key, static_cast<uint64_t>(v));
+        }
+    } else {
+        return nvs_set_blob(handle, key, value, size);
+    }
+}
+
+template <typename U>
+esp_err_t Nvs::get_typed(nvs_handle_t handle, const char* key, void* out, std::size_t size) {
+    if constexpr (std::is_same_v<U, std::string>) {
+        std::size_t required = 0;
+        esp_err_t   err      = nvs_get_str(handle, key, nullptr, &required);
+        if (err != ESP_OK) return err;
+        if (required == 0) return ESP_ERR_NVS_NOT_FOUND;
+        std::string result(required, '\0');
+        err = nvs_get_str(handle, key, &result[0], &required);
+        if (err != ESP_OK) return err;
+        if (!result.empty() && result.back() == '\0') result.pop_back();
+        *static_cast<std::string*>(out) = std::move(result);
+        return ESP_OK;
+    } else if constexpr (std::is_integral_v<U>) {
+        if constexpr (std::is_signed_v<U>) {
+            if constexpr (sizeof(U) == 1) return nvs_get_i8(handle, key, static_cast<int8_t*>(out));
+            else if constexpr (sizeof(U) == 2) return nvs_get_i16(handle, key, static_cast<int16_t*>(out));
+            else if constexpr (sizeof(U) == 4) return nvs_get_i32(handle, key, static_cast<int32_t*>(out));
+            else return nvs_get_i64(handle, key, static_cast<int64_t*>(out));
+        } else {
+            if constexpr (sizeof(U) == 1) return nvs_get_u8(handle, key, static_cast<uint8_t*>(out));
+            else if constexpr (sizeof(U) == 2) return nvs_get_u16(handle, key, static_cast<uint16_t*>(out));
+            else if constexpr (sizeof(U) == 4) return nvs_get_u32(handle, key, static_cast<uint32_t*>(out));
+            else return nvs_get_u64(handle, key, static_cast<uint64_t*>(out));
+        }
+    } else {
+        std::size_t length = size;
+        const esp_err_t err = nvs_get_blob(handle, key, out, &length);
+        return (err == ESP_OK && length != size) ? ESP_ERR_NVS_INVALID_LENGTH : err;
+    }
+}
 
 template <typename T>
 bool Nvs::write(std::string_view ns,
@@ -13,41 +66,26 @@ bool Nvs::write(std::string_view ns,
                 const T& value) {
     using U = typename std::decay<T>::type;
 
-    const std::string storage_key = sanitize_name(key);
-    if (storage_key.empty()) return false;
-
-    ScopedHandle sh;
-    const esp_err_t open_err = open_handle(ns, NVS_READWRITE, sh);
-    if (open_err != ESP_OK) return false;
-
-    esp_err_t write_err = ESP_ERR_INVALID_ARG;
-
     if constexpr (std::is_same_v<U, std::string> || std::is_same_v<U, String>) {
-        write_err = nvs_set_str(sh, storage_key.c_str(), value.c_str());
+        return write_value(ns, key, &set_typed<const char*>, value.c_str(), 0);
     } else if constexpr (std::is_same_v<U, std::string_view>) {
-        write_err = nvs_set_str(sh, storage_key.c_str(), std::string(value).c_str());
+        const std::string text(value);
+        return write_value(ns, key, &set_typed<const char*>, text.c_str(), 0);
     } else if constexpr (std::is_convertible_v<U, const char*>) {
         const char* str = value;  // arrays (string literals) decay here; avoids -Waddress
-        write_err = nvs_set_str(sh, storage_key.c_str(), str ? str : "");
+        return write_value(ns, key, &set_typed<const char*>, str ? str : "", 0);
     } else if constexpr (std::is_same_v<U, bool>) {
-        write_err = nvs_set_u8(sh, storage_key.c_str(), value ? 1u : 0u);
-    } else if constexpr (std::is_integral_v<U> && std::is_signed_v<U>) {
-        if constexpr (sizeof(U) == 1)      write_err = nvs_set_i8(sh, storage_key.c_str(), static_cast<int8_t>(value));
-        else if constexpr (sizeof(U) == 2) write_err = nvs_set_i16(sh, storage_key.c_str(), static_cast<int16_t>(value));
-        else if constexpr (sizeof(U) == 4) write_err = nvs_set_i32(sh, storage_key.c_str(), static_cast<int32_t>(value));
-        else if constexpr (sizeof(U) == 8) write_err = nvs_set_i64(sh, storage_key.c_str(), static_cast<int64_t>(value));
-    } else if constexpr (std::is_integral_v<U> && std::is_unsigned_v<U>) {
-        if constexpr (sizeof(U) == 1)      write_err = nvs_set_u8(sh, storage_key.c_str(), static_cast<uint8_t>(value));
-        else if constexpr (sizeof(U) == 2) write_err = nvs_set_u16(sh, storage_key.c_str(), static_cast<uint16_t>(value));
-        else if constexpr (sizeof(U) == 4) write_err = nvs_set_u32(sh, storage_key.c_str(), static_cast<uint32_t>(value));
-        else if constexpr (sizeof(U) == 8) write_err = nvs_set_u64(sh, storage_key.c_str(), static_cast<uint64_t>(value));
+        const uint8_t raw = value ? 1u : 0u;
+        return write_value(ns, key, &set_typed<uint8_t>, &raw, 1);
+    } else if constexpr (std::is_integral_v<U> && sizeof(U) <= 8) {
+        const U raw = value;
+        return write_value(ns, key, &set_typed<U>, &raw, sizeof(U));
     } else if constexpr (std::is_floating_point_v<U>) {
-        write_err = nvs_set_blob(sh, storage_key.c_str(), &value, sizeof(value));
+        return write_value(ns, key, &set_typed<U>, &value, sizeof(value));
     } else {
         static_assert(always_false<U>::value, "Unsupported Nvs::write<T>() type.");
+        return false;
     }
-
-    return commit_and_close(sh, write_err);
 }
 
 template <typename T>
@@ -56,68 +94,19 @@ T Nvs::read(std::string_view ns,
             T default_value) {
     using U = typename std::decay<T>::type;
 
-    const std::string storage_key = sanitize_name(key);
-    if (storage_key.empty()) return default_value;
-
-    ScopedHandle sh;
-    const esp_err_t open_err = open_handle(ns, NVS_READONLY, sh);
-    if (open_err != ESP_OK) return default_value;
-
     if constexpr (std::is_same_v<U, std::string> || std::is_same_v<U, String>) {
-        std::size_t required = 0;
-        esp_err_t read_err = nvs_get_str(sh, storage_key.c_str(), nullptr, &required);
-        if (read_err != ESP_OK || required == 0) return default_value;
-
-        std::string result(required, '\0');
-        read_err = nvs_get_str(sh, storage_key.c_str(), &result[0], &required);
-
-        if (read_err != ESP_OK) return default_value;
-
-        if (!result.empty() && result.back() == '\0') {
-            result.pop_back();
-        }
-
+        std::string result;
+        if (!read_value(ns, key, &get_typed<std::string>, &result, 0)) return default_value;
         return U(result.c_str());
-
     } else if constexpr (std::is_same_v<U, bool>) {
-        uint8_t raw = default_value ? 1u : 0u;
-        if (nvs_get_u8(sh, storage_key.c_str(), &raw) == ESP_OK) {
-            return raw != 0;
-        }
-    } else if constexpr (std::is_integral_v<U> && std::is_signed_v<U>) {
-        if constexpr (sizeof(U) == 1) {
-            int8_t r = static_cast<int8_t>(default_value);
-            if (nvs_get_i8(sh, storage_key.c_str(), &r) == ESP_OK) return static_cast<T>(r);
-        } else if constexpr (sizeof(U) == 2) {
-            int16_t r = static_cast<int16_t>(default_value);
-            if (nvs_get_i16(sh, storage_key.c_str(), &r) == ESP_OK) return static_cast<T>(r);
-        } else if constexpr (sizeof(U) == 4) {
-            int32_t r = static_cast<int32_t>(default_value);
-            if (nvs_get_i32(sh, storage_key.c_str(), &r) == ESP_OK) return static_cast<T>(r);
-        } else if constexpr (sizeof(U) == 8) {
-            int64_t r = static_cast<int64_t>(default_value);
-            if (nvs_get_i64(sh, storage_key.c_str(), &r) == ESP_OK) return static_cast<T>(r);
-        }
-    } else if constexpr (std::is_integral_v<U> && std::is_unsigned_v<U>) {
-        if constexpr (sizeof(U) == 1) {
-            uint8_t r = static_cast<uint8_t>(default_value);
-            if (nvs_get_u8(sh, storage_key.c_str(), &r) == ESP_OK) return static_cast<T>(r);
-        } else if constexpr (sizeof(U) == 2) {
-            uint16_t r = static_cast<uint16_t>(default_value);
-            if (nvs_get_u16(sh, storage_key.c_str(), &r) == ESP_OK) return static_cast<T>(r);
-        } else if constexpr (sizeof(U) == 4) {
-            uint32_t r = static_cast<uint32_t>(default_value);
-            if (nvs_get_u32(sh, storage_key.c_str(), &r) == ESP_OK) return static_cast<T>(r);
-        } else if constexpr (sizeof(U) == 8) {
-            uint64_t r = static_cast<uint64_t>(default_value);
-            if (nvs_get_u64(sh, storage_key.c_str(), &r) == ESP_OK) return static_cast<T>(r);
-        }
+        uint8_t raw = 0;
+        if (read_value(ns, key, &get_typed<uint8_t>, &raw, 1)) return raw != 0;
+    } else if constexpr (std::is_integral_v<U> && sizeof(U) <= 8) {
+        U raw{};
+        if (read_value(ns, key, &get_typed<U>, &raw, sizeof(U))) return static_cast<T>(raw);
     } else if constexpr (std::is_floating_point_v<U>) {
-        U result = default_value;
-        std::size_t size = sizeof(result);
-        if (nvs_get_blob(sh, storage_key.c_str(), &result, &size) == ESP_OK && size == sizeof(result)) {
-            return result;
-        }
+        U raw{};
+        if (read_value(ns, key, &get_typed<U>, &raw, sizeof(U))) return raw;
     } else {
         static_assert(always_false<U>::value, "Unsupported Nvs::read<T>() type.");
     }
