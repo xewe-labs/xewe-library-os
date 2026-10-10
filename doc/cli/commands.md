@@ -40,6 +40,13 @@ of `Command`, in order:
 
 `CommandGroup::id` holds the normalized (trimmed, lowercased) id.
 
+## Commands a module gets from the core
+
+`xewe::Module` registers `status`, `reset` (and `enable`/`disable`) in every module's group, and,
+since 2.1.0, `set`, `get` and `schema` in the group of a module with a
+[settings table](../os/settings.md) (at `begin()`, skipping any name the module registered
+itself). Those are ordinary commands; see [`os/module.md`](../os/module.md#generic-cli-commands).
+
 ## Constructor
 
 ```cpp

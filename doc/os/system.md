@@ -56,6 +56,14 @@ library.
 **`set_device_name` does not reboot and does not notify anything.** A module that cached the name
 at boot keeps the old one until the next restart.
 
+### $system schema
+
+*(2.1.0)* Every module's [settings](settings.md) as JSON Lines: a header
+`{"schema":1,"core":"2.1.0","device":"<name>","modules":["system",...]}`, then each module's rows
+(table rows, then `schema_extra` rows) with `"module":"<id>"` first, then
+`{"end":"system","count":<rows>}`. `modules` lists every registered module. Implemented by
+`System::print_schema_all()`.
+
 ## begin_routines_required
 
 Prints the boot header from the Os config — `<project_name>`, `Version <version>`, the

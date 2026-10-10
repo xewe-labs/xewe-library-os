@@ -16,6 +16,7 @@
 #include "Serial.h"
 #include "Nvs.h"
 #include "Cli.h"
+#include "Settings.h"
 
 
 namespace xewe {
@@ -76,6 +77,19 @@ public:
     std::string_view         get_name                  ()                           const;
     std::string_view         get_description           ()                           const;
 
+    // settings table (core 2.1, doc/os/settings.md). Empty by default: no commands, no NVS reads,
+    // no schema rows. Override to return {table, this}; read at begin() before every routine.
+    virtual Settings         settings                  ()                           const;
+    // extra schema rows after the table's (e.g. mode parameters with "group":"mode:<name>")
+    virtual void             schema_extra              (SchemaOut& out)             const;
+    // table rows then schema_extra; what `$<id> schema` and `$system schema` print per module
+    void                     print_schema              (SchemaOut& out)             const;
+    // `$<id> set` without the CLI: validate, apply, persist, on_setting_changed. verbose prints
+    // the result or the error line. false on an unknown key or a bad value.
+    bool                     apply_setting             (std::string_view key,
+                                                        std::string_view value,
+                                                        const bool       verbose = false);
+
 protected:
     Os&                      os;
     std::string              id;
@@ -92,15 +106,25 @@ protected:
 
     bool                     requirements_enabled      (const bool verbose = false) const;
 
+    // called after a table setting was applied and saved (`$<id> set`, apply_setting), also while
+    // the module is disabled; not called by the load at begin()
+    virtual void             on_setting_changed        (const SettingDef& def);
+
     void                     run_with_dots             (const std::function<void()>& work,
                                                         uint32_t duration_ms     = 1000,
                                                         uint32_t dot_interval_ms = 200);
 
 private:
+    friend void              settings_attach           (Module& module);
+
     std::vector<Module*>     required_modules;
     std::vector<Module*>     dependent_modules;
 
     void                     register_generic_commands ();
+    void                     register_settings_commands();
+    void                     settings_command          (std::size_t                   which,
+                                                        xewe::span<const std::string> args);
+    void                     load_settings             ();
 };
 
 } // namespace xewe

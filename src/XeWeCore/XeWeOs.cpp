@@ -255,6 +255,16 @@ System::System(Os& os)
     });
 
     register_command(Command{
+        "schema",
+        "Settings of every module as JSON lines",
+        std::string("$") + id + " schema",
+        0,
+        [this](xewe::span<const std::string>) {
+            print_schema_all();
+        }
+    });
+
+    register_command(Command{
         "mac",
         "Print MAC addresses",
         std::string("$") + id + " mac",
@@ -411,6 +421,21 @@ std::string System::status(const bool verbose) const {
     }
 
     return "System OK";
+}
+
+void System::print_schema_all() {
+    const auto&                   modules = os.get_modules();
+    std::vector<std::string_view> ids;
+    ids.reserve(modules.size());
+    for (Module* m : modules) ids.push_back(m->get_id());
+
+    os.serial.print(Settings::header(XEWE_CORE_VERSION, get_device_name(), ids));
+    SchemaOut out(os.serial);
+    for (Module* m : modules) {
+        out.set_module(m->get_id());
+        m->print_schema(out);
+    }
+    os.serial.printf("{\"end\":\"%s\",\"count\":%u}", id.c_str(), static_cast<unsigned>(out.count()));
 }
 
 std::string System::get_device_name() {

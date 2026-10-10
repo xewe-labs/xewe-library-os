@@ -11,7 +11,7 @@
 ## Teaching sketches
 
 - [`01_Hello`](01_Hello/01_Hello.ino): the Os alone; a serial console with `$help`, `$system …` and a device name kept in NVS.
-- [`02_MyModule`](02_MyModule/02_MyModule.ino): your own `$my …` commands, a setting in NVS, enable/disable. Copy `MyModule.h/.cpp` to start a module.
+- [`02_MyModule`](02_MyModule/02_MyModule.ino): your own module with a three-row settings table (`$my set|get|schema`, kept in NVS), a command of its own, a listener, enable/disable. Copy `MyModule.h/.cpp` to start a module.
 
 ## Reference demos
 

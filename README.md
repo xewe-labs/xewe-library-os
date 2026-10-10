@@ -35,6 +35,8 @@ Modules derive from `xewe::Module`; start from [`examples/02_MyModule`](examples
 
 * **Input queue:** serial input keeps up to four completed lines, and a line over 254 characters is dropped whole.
 * **Bounded confirmations:** `$<module> disable` and `$system reset` ask at most twice, 15 s each, and cancel unless the answer is yes.
+* **Settings table (2.1.0):** declare a module's settings once as a `constexpr` table and get `$<id> set|get|schema`, status lines, NVS load and `$system schema` for free ([`doc/os/settings.md`](doc/os/settings.md)); modules without one pay nothing.
+* **Listener sets (2.1.0):** `xewe::ListenerSet<Iface>` for module-to-module change notifications, with an `origin` pointer against echoes ([`doc/os/module.md`](doc/os/module.md#listeners)).
 * **Test hooks:** building with `XEWE_TESTING` adds a `$test` command group for the board tests (`tests/board`) and costs nothing otherwise.
 
 ## Examples

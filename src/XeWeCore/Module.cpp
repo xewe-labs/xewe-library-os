@@ -35,6 +35,9 @@ Module::Module(Os&               os,
 }
 
 void Module::begin() {
+    // step 0 (core 2.1): the settings table, before every routine and even when disabled
+    settings().attach(*this);
+
     bool first_boot = !os.nvs.read<bool>(id, "not_first_boot");
     enabled         = first_boot || os.nvs.read<bool>(id, "is_enabled");
 
@@ -175,6 +178,7 @@ void Module::reset(const bool verbose,
                    const bool keep_enabled) {
     os.nvs.reset_ns(id);
     os.nvs.write<bool>(id, "not_first_boot", true);
+    load_settings();   // table settings back to their defaults (the namespace is empty now)
 
     enabled = (!can_be_disabled || keep_enabled) && requirements_enabled();
 
@@ -189,6 +193,15 @@ void Module::reset(const bool verbose,
 
 std::string Module::status(bool verbose) const {
     std::string status_str = (name + " module " + (os.nvs.read<bool>(id, "is_enabled") ? "enabled" : "disabled"));
+    const Settings table = settings();
+    if (!table.empty()) {
+        for (const SettingDef& d : table.rows()) {
+            status_str += '\n';
+            status_str += d.key;
+            status_str += ": ";
+            status_str += table.value(d);
+        }
+    }
     if (verbose) os.serial.print(status_str);
     return status_str;
 }
@@ -298,6 +311,100 @@ void Module::register_generic_commands() {
                 disable(true, true);
             }
         });
+    }
+}
+
+// ---- settings table (core 2.1, doc/os/settings.md) ---------------------------
+
+// Module::begin step 0, reached through settings_engine only (see Settings.h)
+void settings_attach(Module& module) {
+    module.load_settings();
+    module.register_settings_commands();
+}
+
+const SettingsEngine settings_engine = {
+    detail::settings_load, detail::settings_set, detail::settings_value,
+    detail::settings_schema, detail::settings_expected, settings_attach,
+};
+
+Settings Module::settings() const { return {}; }
+
+void Module::schema_extra(SchemaOut&) const {}
+
+void Module::on_setting_changed(const SettingDef&) {}
+
+void Module::print_schema(SchemaOut& out) const {
+    const Settings table = settings();
+    if (!table.empty()) {
+        for (const SettingDef& d : table.rows()) out.row(table.schema(d));
+    }
+    schema_extra(out);
+}
+
+void Module::load_settings() {
+    const Settings table = settings();
+    if (!table.empty()) table.load(os.nvs, id, &os.serial);
+}
+
+bool Module::apply_setting(std::string_view key, std::string_view value, const bool verbose) {
+    const Settings    table = settings();
+    const SettingDef* row   = nullptr;
+    const auto        err   = table.set(os.nvs, id, key, value, &row);
+
+    if (err == Settings::SetError::UNKNOWN_KEY) {
+        if (verbose) os.serial.printf("! $%s: no setting '%.*s' (see $%s schema)", id.c_str(), int(key.size()), key.data(), id.c_str());
+        return false;
+    }
+    if (err == Settings::SetError::BAD_VALUE) {
+        if (verbose) os.serial.printf("! $%s set %s: expected %s", id.c_str(), row->key, table.expected(*row).c_str());
+        return false;
+    }
+    if (verbose) {
+        os.serial.printf("%s=%s", row->key, table.value(*row).c_str());
+        if (err == Settings::SetError::NOT_SAVED) os.serial.print("! Not saved to NVS: applied until restart");
+        if (row->flags & SettingDef::RESTART)     os.serial.print("Takes effect after $system restart");
+    }
+    on_setting_changed(*row);
+    return true;
+}
+
+void Module::register_settings_commands() {
+    if (!has_cli_commands) return;
+    static constexpr struct {
+        const char* name;
+        const char* description;
+        const char* usage;
+        uint8_t     args;
+    } kCommands[] = {
+        {"set",    "Set a setting: validated, applied, saved", " set <key> <value>", 2},
+        {"get",    "Print a setting",                          " get <key>",         1},
+        {"schema", "Settings as JSON lines",                   " schema",            0},
+    };
+    const CommandGroup* group = os.cli.get_group(id);
+    for (std::size_t i = 0; i < 3; ++i) {
+        bool taken = false;   // a module's own command of that name wins (e.g. a hand-written `set`)
+        if (group != nullptr) {
+            for (const Command& c : group->commands) taken = taken || str::lower(c.name) == kCommands[i].name;
+        }
+        if (taken) continue;
+        register_command(Command{kCommands[i].name, kCommands[i].description, "$" + id + kCommands[i].usage,
+                                 kCommands[i].args,
+                                 [this, i](xewe::span<const std::string> args) { settings_command(i, args); }});
+    }
+}
+
+void Module::settings_command(std::size_t which, xewe::span<const std::string> args) {
+    if (which == 0) {
+        apply_setting(args[0], args[1], true);
+    } else if (which == 1) {
+        const Settings    table = settings();
+        const SettingDef* row   = table.find(args[0]);
+        if (row) os.serial.printf("%s=%s", row->key, table.value(*row).c_str());
+        else     os.serial.printf("! $%s: no setting '%s' (see $%s schema)", id.c_str(), args[0].c_str(), id.c_str());
+    } else {
+        SchemaOut out(os.serial);
+        print_schema(out);
+        os.serial.printf("{\"end\":\"%s\",\"count\":%u}", id.c_str(), static_cast<unsigned>(out.count()));
     }
 }
 

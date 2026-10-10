@@ -23,11 +23,12 @@ are theirs, kept per component, with the ones the merge made obsolete rewritten 
   headers: a sketch whose only include is `<XeWeCore/Serial.h>` fails with "No such file"
   (verified with arduino-cli 1.5.1). `XeWeCore/<Part>.h` may be included **after** the umbrella.
   Every example and doc snippet uses `<XeWeCore.h>`.
-* **Include direction:** Utils ← Serial ← Cli, FlexData ← Nvs, all ← Module ← XeWeOs. Nothing
+* **Include direction:** Utils ← Serial ← Cli, FlexData ← Nvs, Serial ← Settings (Nvs only forward-declared), all ← Module ← XeWeOs. Nothing
   below `Module.h` includes upward. `Module.h` forward-declares `class Os;` and must never include
   `XeWeOs.h` (that is a cycle); only the `.cpp` files do.
-* **One namespace, `xewe`** (plus `xewe::str`, `xewe::color` and `xewe::pins`). The only global symbols are
-  `XeWeOs` (alias of `xewe::Os`) and the macros below.
+* **One namespace, `xewe`** (plus `xewe::str`, `xewe::color`, `xewe::pins` and `xewe::detail`). The only global symbols are
+  `XeWeOs` (alias of `xewe::Os`), the macros below and `XEWE_CORE_VERSION` (+ `_MAJOR/_MINOR/_PATCH`,
+  `XeWeOs.h`; keep them equal to `library.properties`).
 * **Only dependency: ArduinoJson 7** (`depends=ArduinoJson (>=7.0.0)`). `architectures=esp32`.
 
 ## Utils (`src/XeWeCore/Utils/`)
@@ -35,7 +36,7 @@ are theirs, kept per component, with the ones the merge made obsolete rewritten 
 * **Header-only, and it must stay that way.** There is no `.cpp` under `Utils/`.
 * **`LockGuard` is included unconditionally** by `Utils.h` (esp32 only; every ESP32 core has
   FreeRTOS). The unit tests (`tests/unit`) provide a FreeRTOS stand-in in `tests/unit/shim/freertos/`.
-* **`Utils/Color.h`, `Utils/String.h` and `Utils/Pins.h` are host-includable:** standard library
+* **`Utils/Color.h`, `Utils/String.h`, `Utils/Pins.h` and `Utils/Listeners.h` are host-includable:** standard library
   only, no `<Arduino.h>` (Pins.h may include `<sdkconfig.h>` behind `__has_include`). Pure code in
   other repositories (led effects, the fan curve) includes them in its own host tests, and
   `tests/unit/run.sh` compiles each one without the shim. Keep them that way.
@@ -214,6 +215,19 @@ The **core only**. It knows no concrete modules, and it must stay that way.
   debugging, put it back.
 * **`loop()` must not block** in any module, and prompts (`get_yn`, `get_string`) belong in setup
   routines only — they block until answered.
+* **Settings table (`Settings.{h,cpp}`, 2.1.0):** a row's key **is** the NVS key under the module
+  id, ≤ 15 chars, checked at compile time (`setting_key_invalid`/`setting_range_invalid` are
+  declared, never defined, on purpose: reaching one in a constexpr table is the build error).
+  Never rename a row's key or change its member type on a published module: the stored value is
+  lost (typed reads miss). The engine is reached **only** through `settings_engine` (defined in
+  `Module.cpp`), which only `Settings`' constructors name; that is what keeps a firmware without a
+  table from linking it (15_Os: +4.0 KB over 2.0.1). Do not call `detail::settings_*` or
+  `register_settings_commands` directly from code that always links. Secrets are never printed
+  (`********`, `"set"`); there is no unlock. A module's own `set`/`get`/`schema` always wins.
+  The `f32` parser is our own (`parse_decimal`), not `str::parse_float`: strtod costs ~6 KB.
+  Schema line format changes raise `"schema":1` in `Settings::header`; update `doc/os/settings.md`.
+* **`ListenerSet` (`Utils/Listeners.h`)** is host-includable and header-only. `notify` re-reads
+  each slot so `remove` during `notify` stays safe (`listeners_remove_during_notify_is_safe`).
 * **Keep `examples/02_MyModule` in step.** It is what module authors copy; a new hook or changed
   signature has to appear there too.
 
@@ -256,6 +270,6 @@ The **core only**. It knows no concrete modules, and it must stay that way.
 * Check your work without publishing anything:
 
   ```bash
-  tests/unit/run.sh                     # unit tests on this machine: Utils, Pins, Serial, Cli, Nvs (shim), FlexData
+  tests/unit/run.sh                     # unit tests on this machine: Utils, Pins, Listeners, Serial, Cli, Nvs (shim), FlexData, Settings
   # board builds: compile every example for esp32c3 / esp32c6 / esp32s3
   ```

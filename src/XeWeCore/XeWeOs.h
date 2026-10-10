@@ -15,6 +15,12 @@
 #include "esp_log.h"
 #include "Module.h"
 
+// library version (library.properties); `$system schema` reports it in its header line
+#define XEWE_CORE_VERSION       "2.1.0"
+#define XEWE_CORE_VERSION_MAJOR 2
+#define XEWE_CORE_VERSION_MINOR 1
+#define XEWE_CORE_VERSION_PATCH 0
+
 
 namespace xewe {
 
@@ -39,6 +45,8 @@ public:
     std::string status                  (const bool verbose = false)     const override;
 
     std::string get_device_name         ();
+    // `$system schema`: header line, every module's rows (with "module"), end line
+    void        print_schema_all        ();
     void        restart                 (uint16_t delay_ms = 1000);
 };
 

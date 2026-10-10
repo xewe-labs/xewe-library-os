@@ -77,6 +77,9 @@ virtual void begin_routines_common  ();
 
 `begin()` is not virtual and runs this sequence:
 
+0. *(2.1.0)* When the module declares a [settings table](settings.md): loads it (table defaults,
+   then NVS) and registers `$<id> set`, `get` and `schema`. This runs for a disabled module too.
+   Without a table this step does nothing.
 1. Reads `not_first_boot` and `is_enabled` from NVS. On the very first boot the module starts
    enabled.
 2. Prints a `<name> Setup` header — **only when `can_be_disabled` or `requires_init_setup`**. A
@@ -159,7 +162,8 @@ when `can_be_disabled` is `false`. Then:
 **Disabling a module wipes its NVS namespace, and its dependents', without asking unless
 `verbose`.** This is the sharpest edge in the library.
 
-**`reset`** erases the module's NVS namespace, re-writes `not_first_boot = true`, recomputes
+**`reset`** erases the module's NVS namespace, re-writes `not_first_boot = true`, reloads the
+[settings table](settings.md) (every row back to its default), recomputes
 `enabled` as `(!can_be_disabled || keep_enabled) && requirements_enabled()`, persists
 `is_enabled` when the result is enabled, and restarts when asked.
 
@@ -182,7 +186,7 @@ std::string_view    get_description    ()                           const;
 
 | | |
 |---|---|
-| `status` | returns `"<name> module enabled\|disabled"`, read **from NVS**, not the in-RAM flag; prints it when `verbose`. Override to add your own state |
+| `status` | returns `"<name> module enabled\|disabled"`, read **from NVS**, not the in-RAM flag, plus one `\n<key>: <value>` line per [settings](settings.md) row (secrets masked); prints it when `verbose`. Override to add your own state |
 | `is_enabled` | prints `<name> module enabled` **only when the answer is true** |
 | `is_disabled` | prints only when true, and distinguishes missing requirements (listing them) from a user-disabled module (`to enable: $<id> enable`) |
 | `init_setup_complete` | `!requires_init_setup \|\| nvs.read<bool>(id, "init_complete")`. **Its `verbose` parameter is accepted but never used** |
@@ -226,10 +230,76 @@ With `has_cli_commands`, every module gets these for free:
 | `$<id> enable` | 0 | Enable this module | `enable(true, true)`; only when `can_be_disabled` |
 | `$<id> disable` | 0 | Disable this module | `disable(true, true)`; only when `can_be_disabled` |
 
+With a [settings table](settings.md) (2.1.0) it also gets `$<id> set <key> <value>`,
+`$<id> get <key>` and `$<id> schema`, registered at `begin()`, except a name the module
+registered itself.
+
 `$<id>` on its own, and `$help <id>`, print the group's command table.
 
 `$<id> reset` prompts for nothing — unlike `$system reset`, which
 [overrides `reset`](system.md#reset) to add a confirmation.
+
+## Settings
+
+```cpp
+virtual xewe::Settings settings          ()                     const;  // default: {} (no table)
+virtual void           schema_extra      (xewe::SchemaOut& out) const;  // default: no rows
+void                   print_schema      (xewe::SchemaOut& out) const;
+bool                   apply_setting     (std::string_view key, std::string_view value, bool verbose = false);
+protected:
+virtual void           on_setting_changed(const xewe::SettingDef& def);
+```
+
+Plain persistent settings declared as one `constexpr` table; the core loads them, provides
+`set`/`get`/`schema`, the status lines and `$system schema`. See [settings.md](settings.md).
+
+## Listeners
+
+`xewe::ListenerSet<Iface, N = 4>` (`src/XeWeCore/Utils/Listeners.h`, 2.1.0) is the core's
+module-to-module change notification: a module that has something to announce defines a listener
+interface and owns a set; other modules (or the sketch) add themselves.
+
+```cpp
+struct FanListener {
+    virtual void on_speed(uint8_t pct, const void* origin) = 0;
+};
+
+class Fan : public xewe::Module {
+public:
+    xewe::ListenerSet<FanListener> listeners;           // listeners.add(&x) / remove(&x)
+    void set_speed(uint8_t pct, const void* origin = nullptr) {
+        speed = pct;
+        listeners.notify([&](FanListener& l) { l.on_speed(pct, origin); });
+    }
+};
+```
+
+| | |
+|---|---|
+| `add(p)` | `true` when added **or already present** (no duplicates); `false` for `nullptr` or when full |
+| `remove(p)` | `true` when it was registered; the slot is reused by the next `add` |
+| `contains(p)`, `size()`, `capacity()` | `capacity()` is `N`, `static constexpr` |
+| `notify(fn)` | calls `fn(Iface&)` for every listener, in slot order, in the caller's task |
+
+Fixed capacity, no heap, no locking: add and notify from the main loop (a render task or an ISR
+must not call `notify`). **`remove` during `notify` is safe**: each slot is re-read before its
+call, so a listener removed by an earlier callback is skipped. An `add` during `notify` may or may
+not receive the current event.
+
+**The origin rule.** Every event carries `const void* origin`: whoever caused the change passes
+itself (`this`), the CLI passes `nullptr`. A listener that also sets the value (a web UI, a
+HomeKit bridge) skips events whose origin is itself, so its own change is not echoed back to it:
+
+```cpp
+void on_speed(uint8_t pct, const void* origin) override {
+    if (origin == this) return;
+    push_to_clients(pct);
+}
+```
+
+Callbacks run synchronously inside the setter; keep them short (set a flag, push later). The led
+module's `LedListenerSet` is the pattern this generalises. `examples/02_MyModule` shows both the
+set and a listener.
 
 ## NVS keys
 
@@ -241,7 +311,7 @@ Each module stores its state in the NVS namespace named after its `id`:
 | `not_first_boot` | `bool` | set once the first-boot questions have been asked |
 | `init_complete` | `bool` | set after `begin_routines_init()` completes, when `requires_init_setup` |
 
-Your own keys go in the same namespace, which is why `$<id> reset` wipes exactly this module's
+Settings table keys (`settings.md`) and your own keys go in the same namespace, which is why `$<id> reset` wipes exactly this module's
 data. `System` additionally stores `device_name`; the Os uses the separate `root`
 namespace for `init_setup_flag`.
 

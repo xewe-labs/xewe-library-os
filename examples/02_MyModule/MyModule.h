@@ -6,7 +6,13 @@
 
 // Settings fixed at compile time, passed from the sketch: MyModule my(os, {.heartbeat = false});
 struct MyModuleConfig {
-    bool heartbeat = true;      // the bool setting: print the number every 10 s from loop()
+    bool heartbeat = true;      // print the number every beat_s seconds from loop()
+};
+
+// Who wants to hear about changes implements this (the sketch does). `origin` is whoever made the
+// change (nullptr from the CLI): a listener that also sets passes `this` and skips its own echo.
+struct NumberListener {
+    virtual void on_number(uint16_t value, const void* origin) = 0;
 };
 
 class MyModule : public xewe::Module {
@@ -15,24 +21,26 @@ public:
     // method bodies and the [this] command lambdas use.
     explicit MyModule(xewe::Os& host, MyModuleConfig config = {});
 
-    // begin: the Os calls the begin_routines_* hooks from os.begin(), in declaration order.
-    //   begin_routines_required()  every boot, first
-    //   begin_routines_init()      first boot only, until it completes (needs requires_init_setup)
-    //   begin_routines_regular()   every boot after init has completed
-    //   begin_routines_common()    every boot, last   <- the only one this module needs
-    void        begin_routines_common()                     override;
+    // Run-time settings: the table in MyModule.cpp. The core loads them at begin (default, then
+    // NVS) and adds `$my set|get|schema`, the status lines and the rows in `$system schema`.
+    xewe::Settings settings()                               const override;
 
     // loop: called from os.loop() while the module is enabled. Must never block.
     void        loop()                                      override;
 
-    // status: one line used by `$my status` and by the `$system status` table.
-    std::string status(const bool verbose = false)    const override;
-
     // Public API: other modules (or the sketch) may call this too.
-    void        set_number(uint16_t value);
+    void        set_number(uint16_t value, const void* origin = nullptr);
+
+    xewe::ListenerSet<NumberListener> listeners;    // up to 4, no heap: listeners.add(&l)
+
+protected:
+    // `$my set <key> <value>` applied and saved a row: tell the listeners
+    void        on_setting_changed(const xewe::SettingDef& def) override;
 
 private:
     MyModuleConfig config;
-    uint16_t       number       = 0;    // the NVS setting, key "number" in namespace "my"
+    uint16_t       number       = 0;    // the rows' members; NVS keys "number", "beat_s", "label"
+    uint16_t       beat_s       = 10;
+    std::string    label;
     uint32_t       last_beat_ms = 0;
 };

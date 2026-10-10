@@ -11,5 +11,6 @@
 #include "XeWeCore/Cli.h"
 #include "XeWeCore/FlexData.h"
 #include "XeWeCore/Nvs.h"
+#include "XeWeCore/Settings.h"
 #include "XeWeCore/Module.h"
 #include "XeWeCore/XeWeOs.h"

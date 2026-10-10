@@ -36,7 +36,7 @@ for std in c++17 gnu++2b; do
     done
 
     echo "== $std: host-includable headers (standard library only, no Arduino shim)"
-    for h in Utils/Color.h Utils/String.h Utils/Pins.h; do
+    for h in Utils/Color.h Utils/String.h Utils/Pins.h Utils/Listeners.h; do
         printf '#include <XeWeCore/%s>\n' "$h" | "$CXX" -std="$std" -Wall -Wextra -fno-exceptions -I "$SRC" -x c++ -fsyntax-only -
         echo "   ok $h"
     done

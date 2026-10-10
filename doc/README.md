@@ -11,6 +11,9 @@ headers under `src/XeWeCore/` can be included after it.
 | [os/module.md](os/module.md) | `xewe::Module`: constructor, lifecycle, enable/disable/reset, requirements, commands |
 | [os/system.md](os/system.md) | `xewe::System`, the built-in module, and the `$system` commands |
 
+Settings table and `$system schema` (2.1.0): [`os/settings.md`](os/settings.md).
+Listener sets (`xewe::ListenerSet`, 2.1.0): [`os/module.md#listeners`](os/module.md#listeners).
+
 ## Serial — `src/XeWeCore/Serial.h`
 
 | Page | Covers |
