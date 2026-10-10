@@ -1,6 +1,6 @@
 # Os
 
-`src/XeWeCore/XeWeOs.h` — owns the core services and every registered module.
+`src/XeWeCore/XeWeOs.h`. The Os owns the core services and every registered module.
 
 ```cpp
 XeWeOs os({
@@ -23,7 +23,7 @@ struct OsConfig {
     std::string            version         = "0.0.0";
     std::string            build_timestamp = {};
     std::string            url             = "https://github.com/xewe-labs/xewe-os-core";
-    xewe::SerialPortConfig serial          = {};
+    SerialPortConfig       serial          = {};
     bool                   print_banner    = true;
 };
 ```
@@ -65,9 +65,8 @@ The constructor points [`xewe::pins::error_handler`](../utils/pins.md#messages) 
 `report_error`, so GPIO claim conflicts from module constructors are queued like registration
 errors.
 
-Member declaration order in the class is deliberate: the private `modules` vector and `config` are
-declared **before** the public service members, so the vector already exists when `system`
-constructs itself and registers.
+The private `modules` vector and `config` are declared before the public service members. The
+vector therefore exists when `system` constructs itself and registers.
 
 ## begin
 
@@ -77,28 +76,28 @@ void begin();
 
 Call once from `setup()`. In order:
 
-1. `serial.begin(config.serial)` — which blocks for `startup_delay_ms`.
-2. Installs an NVS error handler that prints to the console:
-   `nvs.set_error_handler([this](std::string_view m) { serial.print(m); })`. XeWeCore Nvs errors
-   therefore appear on the serial port rather than in the ESP log.
-3. Prints the banner, when `config.print_banner`, then any registration errors queued by
+1. `serial.begin(config.serial)`, which blocks for `startup_delay_ms`.
+2. Points the Nvs error handler and `xewe::flex_error_handler` at `serial.print`. Nvs and FlexData
+   errors therefore appear on the console, not in the ESP log.
+3. Prints the banner when `config.print_banner` is set, then any errors queued by
    [`report_error`](#report_error) (rejected module ids or command names).
-4. Reads `init_setup_flag` from the **`root` NVS namespace**. It is unset on the very first boot
-   of a device.
-5. Calls `begin()` on every registered module, in registration order.
-6. **On the first boot only:** prints `Initial Setup Complete`, writes `root/init_setup_flag`, and
-   **restarts the device** — only if that write succeeded. If NVS cannot be written (init failure,
-   missing or full partition, commit error) it prints
-   `! NVS write failed: init_setup_flag not saved, not restarting` (after the Nvs error itself) and
-   carries on, so a device with broken NVS stays reachable over the CLI instead of boot-looping;
-   module first-boot setup then re-runs on every boot until NVS works.
-7. Prints `System Setup Complete`.
+4. With `XEWE_TESTING` defined, registers the `$test` hooks used by the board tests.
+5. Reads `init_setup_flag` from the **`root` NVS namespace**. It is unset on the first boot of a
+   device.
+6. Calls `begin()` on every registered module, in registration order.
+7. **On the first boot only:** prints `Initial Setup Complete`, writes `root/init_setup_flag` and
+   **restarts the device** if that write succeeded. If NVS cannot be written (init failure,
+   missing or full partition, commit error), it prints
+   `! NVS write failed: init_setup_flag not saved, not restarting` after the Nvs error and carries
+   on. A device with broken NVS stays reachable over the CLI instead of boot-looping. Module
+   first-boot setup then runs again on every boot until NVS works.
+8. Prints `System Setup Complete`.
 
-**The first boot of a new device ends in a reboot** (when NVS works; see step 6). Everything after `os.begin()` in `setup()` is
-not reached on that boot. Anything with a one-time side effect outside NVS has to tolerate running
-again.
+**The first boot of a new device ends in a reboot** when NVS works (step 7). Code after
+`os.begin()` in `setup()` does not run on that boot. Anything with a one-time side effect outside
+NVS has to tolerate running again.
 
-Boot output order is: banner → the `System` project/version header → each module's
+Boot output order: banner → queued errors → the `System` project/version header → each module's
 `<name> Setup` header → `System Setup Complete`.
 
 ### Build-time device name
@@ -111,16 +110,16 @@ xewe build --chip s3 --define 'XEWE_DEVICE_NAME="Laptop Chiller"'
 arduino-cli compile --build-property "compiler.cpp.extra_flags='-DXEWE_DEVICE_NAME=\"Laptop Chiller\"'" ...
 ```
 
-The inner single quotes keep a name with spaces in one compiler argument (arduino-cli splits the
-recipe on spaces outside quotes); without them `Chiller"` becomes a stray file name.
+The inner single quotes keep a name with spaces in one compiler argument. arduino-cli splits the
+recipe on spaces outside quotes; without them `Chiller"` becomes a stray file name.
 
-When it is defined, `System`'s first-boot setup does not prompt: if `system/device_name` is empty
-it writes `XEWE_DEVICE_NAME` there, and either way it prints `Device name: <name>`. A name already
-in NVS (set earlier with `$system set_device_name`) is kept. `$system set_device_name` still renames
-the device afterwards. A `#define` in the sketch does **not** work: the name is read by
-`XeWeOs.cpp`, a library file, so it has to be a build flag or come from the tools' generated
-`<XeWeBuildInfo.h>` (which `XeWeOs.cpp` includes when present). Without the define the prompt is
-unchanged and nothing of this is compiled in.
+When it is defined, `System`'s first-boot setup does not prompt. If `system/device_name` is empty
+it writes `XEWE_DEVICE_NAME` there. Either way it prints `Device name: <name>`. A name already in
+NVS is kept, and `$system set_device_name` still renames the device afterwards.
+
+A `#define` in the sketch does **not** work. The name is read by `XeWeOs.cpp`, a library file, so
+it has to be a build flag or come from the tools' generated `<XeWeBuildInfo.h>`, which
+`XeWeOs.cpp` includes when present. Without the define the device prompts for a name.
 
 ## loop
 
@@ -128,9 +127,9 @@ unchanged and nothing of this is compiled in.
 void loop();
 ```
 
-Call every iteration. Runs `cli.loop()` first, then `loop()` on each module **that is
-enabled** — a disabled module never has `loop()` called, which is why public functions of a
-disableable module should guard with `if (is_disabled()) return;`.
+Call every iteration. Runs `cli.loop()` first, then `loop()` on each **enabled** module. A
+disabled module's `loop()` is never called. Public functions of a module that can be disabled
+should still start with `if (is_disabled()) return;`, because other code can call them.
 
 ## register_module
 
@@ -139,9 +138,11 @@ bool register_module(Module& module);
 ```
 
 Called from `Module`'s constructor; a sketch does not call it. Returns `false` and registers
-nothing when the id is already registered, empty, contains whitespace, equals `help` or is longer
-than 15 characters (see [Module](module.md)). The rejection is reported through `report_error` and
-the module gets no CLI group, so it never begins, never loops and adds no commands.
+nothing when the id is empty, contains whitespace, equals `help` in any case, is longer than 15
+characters, or is already registered. "Already registered" includes a CLI group whose id differs
+only in case. The rejection is reported through `report_error` as
+`! Module id '<id>' <reason>: module not registered`. The module gets no CLI group, so it never
+begins, never loops and adds no commands. See [Module](module.md#constructor).
 
 ## report_error
 
@@ -149,20 +150,21 @@ the module gets no CLI group, so it never begins, never loops and adds no comman
 void report_error(const char* fmt, ...);
 ```
 
-`printf`-style; prints the message (truncated at 127 characters). Before `begin()` (static
-constructors, Serial not up yet) it is queued and printed by `begin()` right after the banner.
+`printf`-style; prints the message, truncated at 127 characters. Before `begin()` (static
+constructors, Serial not up yet) the message is queued, and `begin()` prints it right after the
+banner.
 
 ## get_module, get_modules, get_config
 
 ```cpp
 Module*                       get_module (std::string_view id) const;
 const std::vector<Module*>&   get_modules()                    const;
-const OsConfig& get_config ()                    const;
+const OsConfig&               get_config ()                    const;
 ```
 
-`get_module` returns `nullptr` when nothing matches; the match is exact and case-sensitive. It is
-the way to reach a module you do not hold a reference to. Prefer a constructor reference plus
-`add_requirement` for a real dependency — see [module.md](module.md).
+`get_module` returns `nullptr` when nothing matches; the match is exact and case-sensitive. Use it
+to reach a module you hold no reference to. For a real dependency, prefer a constructor reference
+plus `add_requirement` ([Module](module.md#add_requirement)).
 
 `get_config` is how `System` reads the project name and version for the boot header.
 

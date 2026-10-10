@@ -59,7 +59,8 @@ names.
 
 Because there is no schema in the blob, a layout change **is not detected**: the old bytes are
 read against the new field list and produce plausible garbage, or run short and return `false`
-after a partial write. The version byte only catches a change you make deliberately.
+after a partial write. Leftover bytes at the end are ignored, so removing the last field also goes
+unnoticed. The version byte only catches a change you make deliberately.
 
 ### kBlobVersion is not a per-struct version
 
@@ -107,6 +108,7 @@ Fixed overhead is one byte for the version, plus four bytes per string and per v
 two `uint8_t`s and a 10-character name is `1 + 1 + 1 + 4 + 10 = 17` bytes.
 
 A blob is written as a single NVS entry, so its size is bounded by the NVS partition and by
-ESP-IDF's own per-blob ceiling. Neither is a limit a settings struct is likely to approach; if you
-are persisting something large — a table, a log — check the current limits in the ESP-IDF NVS
-documentation rather than assuming it fits.
+ESP-IDF's per-blob limit. A settings struct stays far below both. For something large (a table, a
+log), check the limits in the ESP-IDF NVS documentation. A write that does not fit fails with
+`ESP_ERR_NVS_NOT_ENOUGH_SPACE` or `ESP_ERR_NVS_VALUE_TOO_LONG` (see
+[nvs.md](nvs.md#set_error_handler)).

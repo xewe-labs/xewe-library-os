@@ -30,9 +30,8 @@ void print(std::string_view message        = {},
 
 `print()` with no arguments prints an empty line.
 
-**Wrapping only happens when `message_width > 0`.** With the default `0`, the text is emitted
-as-is between the margins and `text_align`/`wrap_mode` have no effect — the most common surprise
-with this function.
+**Wrapping only happens when `message_width > 0`.** With the default `0`, the text is printed
+as-is between the margins, and `text_align` and `wrap_mode` have no effect.
 
 ```cpp
 serial.print("Saved.");
@@ -46,12 +45,12 @@ serial.print("A long sentence that should be wrapped inside a box.",
 void printf(const char* fmt, ...);
 ```
 
-Formats and prints with all of `print`'s defaults, so it **appends CRLF**. The result is sized
-exactly (two-pass `vsnprintf` into a heap buffer), so there is no truncation limit.
-`printf(nullptr)` prints an empty line.
+Formats with [`xewe::str::vformat`](../utils/string.md) and prints with all of `print`'s defaults,
+so it **appends CRLF**. `vformat` sizes the result exactly (two passes of `vsnprintf`), so long
+output is not truncated. `printf(nullptr)` prints an empty line.
 
-There is no `__attribute__((format))` on it, so a format/argument mismatch is not diagnosed at
-compile time.
+There is no `__attribute__((format))`, so a format/argument mismatch is not caught at compile
+time.
 
 ## printf_fmt
 
@@ -94,8 +93,8 @@ void print_spacer(const uint16_t   total_width    = 50,
                   std::string_view edge_character = {});
 ```
 
-The same shape filled with spaces — a blank row inside a box. With the default empty edge it is
-just a run of spaces.
+The same shape filled with spaces: a blank row inside a box. With the default empty edge it is a
+run of spaces.
 
 ## print_header
 
@@ -146,17 +145,19 @@ std::string render_table(const std::vector<std::vector<std::string_view>>& table
                          std::string_view sep_fill             = "-") const;
 ```
 
-`render_table` is `const` and returns the whole table as one CRLF-separated string;
-`print_table` writes exactly that. Use `render_table` when the same table has to go somewhere else
-too — a log, a web response.
+`render_table` is `const` and returns the whole table as one CRLF-separated string.
+`print_table` writes exactly that string. Use `render_table` when the table also goes elsewhere,
+such as a log or a web response.
 
 Layout rules:
 
 * Column count is the longest row; short rows are padded with empty cells.
 * Column width is the longest single line in any cell of that column, **plus 2**, clamped to
-  `max_col_width`. A resulting width of 2 or less is forced to 3.
+  `max_col_width`. The 2 is one space on each side of the text.
 * Cells may contain `'\n'`; each segment is word-wrapped to `width - 2`. Row height is the tallest
   cell in the row.
+* Keep `max_col_width` at 3 or more. Below that, cells wrap at one character but the column is
+  narrower, so the edges no longer line up.
 * A `+---+---+` divider is drawn before the first row and after every row.
 * A non-empty `header_content` adds a full-width separator and a centred title above the table.
 * An empty `table` renders an empty string.
@@ -170,6 +171,6 @@ serial.print_table({
 }, "Summary");
 ```
 
-**The cells are `std::string_view`s.** Everything they point at must outlive the call — build
-temporaries into named variables first, as above. A `std::to_string(...)` written inline is
-destroyed before the table is rendered.
+**The cells are `std::string_view`s.** What they point at must outlive the call, so build
+temporaries into named variables first, as above. A `std::to_string(...)` written inline in the
+table is destroyed before the table is rendered.

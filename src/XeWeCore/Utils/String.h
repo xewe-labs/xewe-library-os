@@ -102,6 +102,8 @@ inline std::string to_hex_color(uint8_t r, uint8_t g, uint8_t b) {
 // Time and Timezone String Helpers
 // --------------------------------------------------------------------------------------
 
+// accepts GMT, GMT0, UTC, UTC0, GMT±H, GMT±HH, GMT±H:MM, GMT±HH:MM, GMT±HMM and GMT±HHMM
+// (any case); nothing may follow the offset
 inline bool parse_gmt_offset(std::string_view s, std::string& normalized_gmt) {
     std::string tz = upper(std::string(s));
     if (tz == "GMT" || tz == "GMT0" || tz == "UTC" || tz == "UTC0") {
@@ -114,24 +116,38 @@ inline bool parse_gmt_offset(std::string_view s, std::string& normalized_gmt) {
     char sign = tz[3];
     if (sign != '+' && sign != '-') return false;
 
-    int         h = 0, m = 0;
-    const char* num_part = tz.c_str() + 4;
+    const std::string_view num(tz.c_str() + 4, tz.length() - 4);
+    const auto all_digits = [](std::string_view d) {
+        if (d.empty()) return false;
+        for (char c : d) if (c < '0' || c > '9') return false;
+        return true;
+    };
+    const auto to_int = [](std::string_view d) {
+        int v = 0;
+        for (char c : d) v = v * 10 + (c - '0');
+        return v;
+    };
 
-    if (strchr(num_part, ':')) {
-        if (sscanf(num_part, "%d:%d", &h, &m) != 2) return false;
+    int          h     = 0, m = 0;
+    const size_t colon = num.find(':');
+    if (colon != std::string_view::npos) {
+        const std::string_view hh = num.substr(0, colon);
+        const std::string_view mm = num.substr(colon + 1);
+        if (hh.size() > 2 || mm.size() != 2 || !all_digits(hh) || !all_digits(mm)) return false;
+        h = to_int(hh);
+        m = to_int(mm);
     } else {
-        int val = 0;
-        if (sscanf(num_part, "%d", &val) != 1) return false;
-        if (tz.length() <= 6) {
+        if (num.size() > 4 || !all_digits(num)) return false;
+        const int val = to_int(num);
+        if (num.size() <= 2) {
             h = val;
-            m = 0;
         } else {
             h = val / 100;
             m = val % 100;
         }
     }
 
-    if (h < 0 || h > 14 || m < 0 || m >= 60) return false;
+    if (h > 14 || m >= 60) return false;
     if (h == 14 && m > 0) return false;
 
     char buf[16];
@@ -278,8 +294,13 @@ inline std::vector<std::string_view> split_lines_sv(std::string_view text, char 
     return out;
 }
 
+// an empty separator splits nothing: the result is the whole input as one element
 inline std::vector<std::string> split_by_token(std::string_view s, std::string_view token) {
     std::vector<std::string> out;
+    if (token.empty()) {
+        out.emplace_back(s);
+        return out;
+    }
     size_t                   start = 0;
     while (start <= s.size()) {
         size_t pos = s.find(token, start);

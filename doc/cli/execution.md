@@ -12,8 +12,8 @@ void execute(std::string_view input_line) const;
 Parses a full line of the form `$<group> <command> [args...]` and dispatches it. Returns nothing:
 **errors are printed to the serial port**, not returned.
 
-This is what `loop()` calls for a typed line, and what you call to run a command from code — a
-button handler, a schedule, a web request:
+`loop()` calls it for each typed line. Call it to run a command from code, such as a button
+handler, a schedule or a web request:
 
 ```cpp
 xewe_cli.execute("$led set 10");
@@ -25,14 +25,16 @@ xewe_cli.execute("$led set 10");
 |---|---|
 | empty or whitespace only | silently ignored |
 | no leading `$` | `Error: commands must start with '$'; type $help` |
-| `$` alone, or nothing after tokenizing | `Error: Missing command group; usage: $<group> <command> [args...]` |
+| `$` alone | `Error: Missing command group; usage: $<group> <command> [args...]` |
+| unterminated quote | `Error: Unterminated quote in command.` (see [Tokenizer](#tokenizer)) |
 | `$help` | [`print_all_commands()`](help.md) |
 | `$help <group>` | [`print_help(group)`](help.md) |
 | `$help a b` | `Error: Argument count mismatch for '$help'; usage: $help <group>` |
 | unknown group | `Error: Unknown command group '<g>'` |
 | group with no commands | `Error: Command group '<g>' has no CLI commands` |
 | `$<group>` with no command | that group's help |
-| `$<group> help` | that group's help — an alias |
+| `$<group> help` | that group's help |
+| `$<group> ""` (empty command token) | `Error: Missing command in command group '<g>'; usage: $<g> <command> [args...]` |
 | unknown command | `Error: Unknown command '<c>' in command group '<g>'` |
 | wrong argument count | `Error: Argument count mismatch for '$<g> <c>'; expected <N>, got <M>`, then `Usage: <sample_usage>` when one is set |
 
@@ -49,7 +51,7 @@ bool execute(std::string_view             group_id,
              xewe::span<const std::string> args) const;
 ```
 
-Skips parsing entirely and returns whether a command ran. It prints nothing — not even on failure.
+Skips parsing and returns whether a command ran. It prints nothing, not even on failure.
 
 ```cpp
 std::vector<std::string> args{"128"};
@@ -57,9 +59,8 @@ if (!xewe_cli.execute("led", "set", args)) { /* no such command */ }
 ```
 
 A command matches when its `function` is non-empty, its name matches case-insensitively, **and
-`args.size() == command.arg_count`**. Because the argument count participates in matching, two
-commands sharing a name but differing in arity act as an overload set here — like the parsed
-path, which applies the same rule (name and count), falling back to the first same-named command
+`args.size() == command.arg_count`**. Commands that share a name and differ in arity act as an
+overload set, as in the parsed path. The parsed path falls back to the first command of that name
 only to report an argument-count mismatch.
 
 Returns `false` when the group is unknown or nothing matched.
@@ -75,8 +76,8 @@ A handler receives `xewe::span<const std::string>` over a vector owned by `execu
  [this](xewe::span<const std::string> args) { stored_name = args[0]; }}   // copy, not a view
 ```
 
-`execute` copies the input line before tokenizing, so a handler may modify the caller's buffer,
-call `execute` again (nested), or add/remove commands and groups, including its own: the handler
+`execute` copies the input line before tokenizing. A handler may therefore modify the caller's
+buffer, call `execute` again, or add and remove commands and groups, its own included. The handler
 runs from a copy of its `std::function`, so removing its own group does not destroy it mid-call.
 
 ## Tokenizer
@@ -87,8 +88,8 @@ The `$` is stripped, then the rest is split on whitespace:
 * Inside quotes, `\` escapes the next character, including `"`, so `"abc\"` is an unterminated
   quote. Outside quotes `\` is literal: `a\ b` is the two tokens `a\` and `b`.
 * A closing quote ends the token: `"a"b` is the two tokens `a` and `b`.
-* **Quoting only applies when `"` is the first character of a token** — `ab"cd"` is one literal
-  token including the quotes.
+* **Quoting only applies when `"` is the first character of a token:** `ab"cd"` is one literal
+  token, quotes included.
 * An unterminated quote prints `Error: Unterminated quote in command.` and **aborts the whole
   line**; nothing runs.
 * `$ led set 10`, with a space after the `$`, is accepted.

@@ -229,6 +229,15 @@ TEST(nvs_erase_all_wipes_and_stays_usable) {
     CHECK_EQ(f.open_handles(), std::size_t(0));
 }
 
+TEST(nvs_erase_all_failure_is_reported) {
+    Fx f;
+    CHECK(f.nvs.write<int32_t>("a", "k", 1));
+    host_nvs::state().erase_error = ESP_FAIL;
+    CHECK(!f.nvs.erase_all());
+    CHECK(f.logged("Nvs: ERROR partition erase failed (ESP_FAIL)"));
+    CHECK_EQ(f.errors.size(), std::size_t(1));
+}
+
 TEST(nvs_first_boot_flag_pattern) {
     // Os::begin and Module::begin: "flag missing" == first boot. A namespace that was
     // never written reads as first boot, and an erased partition does too.

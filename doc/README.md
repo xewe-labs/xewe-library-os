@@ -79,5 +79,7 @@ always *your own* module.
 
 ## Also
 
-* [Migrating from the 1.0.0 libraries](migrating-from-1.md).
-* Working on XeWeCore itself (build, tests, rules): [`.agents/AGENTS.md`](../.agents/AGENTS.md).
+* [Examples](examples.md): what each sketch in `examples/` shows.
+* [Tests](tests.md): `setup.sh`, `run.sh`, the host unit tests and the board tests.
+* Rules for changing the core (layout, include direction, what a change must carry):
+  [`.agents/AGENTS.md`](../.agents/AGENTS.md).

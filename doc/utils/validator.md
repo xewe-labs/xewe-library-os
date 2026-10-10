@@ -35,14 +35,13 @@ An unsupported `T` fails with `static_assert`:
 
 ## Notes
 
-* **This function is exception-free.** It delegates to
-  [`xewe::str::parse_int`](string.md#number-parsing) and `parse_float`, which report failure by
-  returning `false`. It compiles with `-fno-exceptions`, which most Arduino cores use.
+* **Exception-free.** It delegates to [`xewe::str::parse_int`](string.md#number-parsing) and
+  `parse_float`, which report failure by returning `false`. It compiles with `-fno-exceptions`.
 * **Trailing characters are rejected.** `validate<int>("12abc", 0, 100)` and
-  `validate<int>("1.5", 0, 100)` return `std::nullopt`. `validate` and `xewe::str::parse_int`
-  agree on what counts as a number.
-* **Base 10 only.** `validate<int>("0x1F", 0, 255)` returns `std::nullopt`. Surrounding
-  whitespace is trimmed and a leading `+`/`-` is accepted.
+  `validate<int>("1.5", 0, 100)` return `std::nullopt`.
+* **Integers are base 10 only.** `validate<int>("0x1F", 0, 255)` returns `std::nullopt`.
+  Surrounding whitespace is trimmed and a leading `+`/`-` is accepted. `float`/`double` go through
+  `strtod`, which also reads hex forms (`"0x1p3"` is `8`).
 * **The value must fit `T` itself**, whatever the bounds: `validate<int8_t>("300", 0, 1000)`
   returns `std::nullopt`, never a truncated `44`.
 * **It allocates.** Each call copies the view into a `std::string` before parsing.

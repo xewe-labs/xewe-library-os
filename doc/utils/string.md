@@ -1,7 +1,7 @@
 # xewe::str
 
-`src/XeWeCore/Utils/String.h` — string helpers shared across the XeWe libraries: case, trimming,
-splitting, wrapping, box drawing, and parsers for numbers, times and days.
+`src/XeWeCore/Utils/String.h` — string helpers: case, hex, trimming, splitting, wrapping, box
+drawing, and parsers for numbers, times and days.
 
 Everything here is `inline` and header-only. Arguments are taken as `std::string_view` where the
 function only reads, and by value as `std::string` where it returns a modified copy.
@@ -72,7 +72,7 @@ inline std::vector<std::string>      split_by_token(std::string_view s, std::str
 | `trim` | in place; strips leading and trailing ` `, `\t`, `\r`, `\n` |
 | `rtrim_cr` | in place; removes **one** trailing `\r`, for CRLF input |
 | `split_lines_sv` | splits on `delim`; always emits a final element, which is empty when the text ends with the delimiter |
-| `split_by_token` | splits on a multi-character separator |
+| `split_by_token` | splits on a multi-character separator; an empty separator returns the whole input as one element |
 
 **`split_lines_sv` returns views into its argument.** The input must outlive the result; splitting
 a temporary is a dangling read.
@@ -132,15 +132,16 @@ inline std::string vformat(const char* fmt, va_list ap);
 
 `vsnprintf` into a `std::string`. Returns `{}` for a null `fmt` or a non-positive formatted length.
 
-**On GCC it is exact** (a two-pass `vsnprintf` sizes the result first). On any other compiler it
-falls back to a **256-byte stack buffer and truncates** silently. Every supported core's toolchain
-is GCC or Clang, so the fast path is what you get on device.
+**On GCC and Clang it is exact** (a two-pass `vsnprintf` sizes the result first). On any other
+compiler it falls back to a **256-byte stack buffer and truncates** silently. The ESP32 toolchain
+is GCC, so on device the result is exact.
 
 ```cpp
 inline std::string format(const char* fmt, ...);
 ```
 
-The variadic form of `vformat`, with the same guarantees. Handy when you want a `std::string` rather than direct output:
+The variadic form of `vformat`, with the same guarantees, for a `std::string` instead of direct
+output:
 
 ```cpp
 Serial.print(xewe::str::format("hue %3u\n", hue).c_str());
@@ -168,13 +169,12 @@ inline bool parse_float(std::string_view s, T& out);
 
 The same contract for floating-point types, through `strtod`. It trims, rejects trailing
 characters, and reports `false` on overflow (`ERANGE`) — which also fires on denormal
-**underflow**, so `parse_float<double>("1e-320", d)` returns `false`.
+**underflow**, so `parse_float<double>("1e-320", d)` returns `false`. Unlike `parse_int` it is not
+base 10 only: `strtod` also reads `inf`, `nan` and hex forms such as `0x1p3`.
 
 Both functions copy the view into a `std::string` first, so neither is allocation-free.
 
-Compared with `xewe::validate`: these return a `bool` and leave range-checking to you; `validate`
-adds the range check and returns an `std::optional`. Both are exception-free and both reject
-trailing garbage — they agree on what counts as a number.
+[`xewe::validate`](validator.md) wraps both and adds a range check.
 
 ## Time and day parsing
 
@@ -201,9 +201,13 @@ Only the two-letter form is accepted — `"Mon"` and `"Monday"` both fail.
 | Input | Result |
 |---|---|
 | `GMT`, `GMT0`, `UTC`, `UTC0` | `GMT+00:00` |
-| `GMT-8`, `GMT+5:30` | `GMT-08:00`, `GMT+05:00` … sign then `H:MM` |
-| `GMT+0530` | four bare digits split as `HHMM` |
-| `GMT+5` | up to six characters total is read as hours only |
+| `GMT-8`, `GMT+12` | `GMT-08:00`, `GMT+12:00`: one or two digits are hours |
+| `GMT+5:30`, `GMT+05:30` | `GMT+05:30`: sign, then `H:MM` or `HH:MM` |
+| `GMT+0530`, `GMT+530` | `GMT+05:30`: three or four digits are `HHMM` |
+
+Lower case is accepted (`gmt-8`). After the sign only digits and one colon are allowed. Anything
+after the offset is rejected: `GMT+5x`, `GMT+5:30 ` and `GMT+05:30x` return `false`. So do a
+second sign (`GMT++5`), a space (`GMT+ 5`), one minute digit (`GMT+5:3`) and five or more digits.
 
 Range: `0 ≤ h ≤ 14`, `0 ≤ m < 60`, and `h == 14` requires `m == 0`. Anything outside that, or a
 string not starting with `GMT`, returns `false` and leaves `normalized_gmt` untouched.

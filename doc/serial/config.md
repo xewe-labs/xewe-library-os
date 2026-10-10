@@ -40,23 +40,16 @@ void setup() {
 }
 ```
 
-**`begin()` blocks for a second by default.** The delay exists because a USB CDC port (ESP32-C3,
-C6 and S3 with `CDCOnBoot`, and the native-USB boards generally) needs time to enumerate on the host — without it the first lines of
-output are printed into a port nobody is listening to yet. Set `startup_delay_ms = 0` when you are
-on a real UART and care about boot time.
+**`begin()` blocks for a second by default.** A USB CDC port (ESP32-C3, C6 and S3 with
+`CDCOnBoot`) needs time to enumerate on the host. Without the delay the first lines go to a port
+nobody listens to yet. On a real UART, set `startup_delay_ms = 0` to boot faster.
 
-**`tx_buffer_size` and `rx_buffer_size` are applied on ESP32 only.** It is the only supported core
-that lets a sketch resize the UART/CDC ring buffers; everywhere else the core's own fixed buffers
-are used and the two fields are ignored (the calls are behind `ARDUINO_ARCH_ESP32`).
-
-Buffer sizes must be set before `Serial.begin`, which is why they live here and cannot be changed
-afterwards.
+**The buffer sizes apply on ESP32 only** (the calls sit behind `ARDUINO_ARCH_ESP32`). They must be
+set before `Serial.begin`, so they cannot change after `begin()`.
 
 ## Notes
 
-* `SerialPort` holds no dynamic state beyond its 255-byte line buffer; one instance per physical
-  port, usually a global.
+* `SerialPort` uses no heap for input. Its line buffer and four-line queue take about 1.3 KB of
+  static RAM. Use one instance per physical port, usually a global.
 * Calling `begin()` twice re-opens the port and waits again.
-* This library defines **no** `DEBUG_` flag. The `DEBUG_<Class>` convention in
-  [XeWeCore Utils](../utils/debug.md) does not
-  apply to anything here.
+* `SerialPort` has no `DEBUG_` flag (see [debug](../utils/debug.md)).

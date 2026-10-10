@@ -9,9 +9,9 @@ if (!xewe::pins::claim(cfg.pin, id.c_str())) return;   // in a module's begin, b
 xewe::pins::release(cfg.pin, id.c_str());              // when the module lets the pin go
 ```
 
-No core module claims pins; modules adopt it one by one. A pin that nobody claims is not
-checked, so two modules that both claim their pins are protected from each other, and a module
-that does not claim is invisible to the registry.
+The core's own `System` module claims no pins. A pin that nobody claims is not checked: two
+modules that both claim their pins are protected from each other, and a module that does not
+claim is invisible to the registry.
 
 ## claim, release, owner_of
 
@@ -23,7 +23,7 @@ inline const char* owner_of(int gpio);
 
 | | |
 |---|---|
-| `claim` | `true` when the pin was free (now `owner`'s) or already `owner`'s. `false` when another owner holds it, and for a GPIO outside `0`–`48` |
+| `claim` | `true` when the pin was free (now `owner`'s) or already `owner`'s (names compared with `strcmp`). `false` when another owner holds it, and for a GPIO outside `0`–`48`. A null `owner` is stored as `"?"` |
 | `release` | frees the pin if `owner` holds it (names compared with `strcmp`); `false` and no change otherwise |
 | `owner_of` | the owner's name, or `nullptr` when free or out of range |
 

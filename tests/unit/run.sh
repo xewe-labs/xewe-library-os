@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # xewe-os-core/tests/unit/run.sh
 #
-# Host-native checks for the hardware-free parts of XeWeCore (Utils, Serial, Cli).
+# Host-native checks for the hardware-free parts of XeWeCore: Utils, Serial and Cli; with
+# ArduinoJson also FlexData, and at gnu++2b Nvs and Settings against an in-memory NVS shim.
 # Builds the compile probes and the unit tests with the host g++ against the
 # Arduino/FreeRTOS shim, once at -std=c++17 (exercises the xewe::span fallback)
 # and once at -std=gnu++2b (what the ESP32 core uses), and runs the tests.
@@ -18,11 +19,12 @@ trap 'rm -rf "$OUT"' EXIT
 FLAGS=(-Wall -Wextra -fno-exceptions -I "$HERE/shim" -I "$SRC")
 LIB_SRCS=("$SRC/XeWeCore/Serial.cpp" "$SRC/XeWeCore/Cli.cpp")
 
-# FlexData tests need ArduinoJson (header-only): ARDUINOJSON_SRC, else the copy a sibling project
-# harness downloaded (../<project>/build/libraries), else the shared toolchain copy.
+# FlexData tests need ArduinoJson (header-only): ARDUINOJSON_SRC, else the copy ./setup.sh put in
+# build/libraries, else one a sibling project downloaded (../<project>/build/libraries), else the
+# shared toolchain copy.
 if [ -z "${ARDUINOJSON_SRC:-}" ]; then
     ARDUINOJSON_SRC="$HERE/../../../../.toolchain/user/libraries/ArduinoJson/src"
-    for candidate in "$HERE"/../../../*/build/libraries/ArduinoJson/src; do
+    for candidate in "$HERE"/../../build/libraries/ArduinoJson/src "$HERE"/../../../*/build/libraries/ArduinoJson/src; do
         if [ -f "$candidate/ArduinoJson.h" ]; then
             ARDUINOJSON_SRC="$candidate"
             break

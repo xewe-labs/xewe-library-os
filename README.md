@@ -32,13 +32,13 @@ Upload, open the Serial Monitor at 115200 baud and type `$help`.
 | 3. Build a product | the [xewe-os](https://github.com/xewe-labs/xewe-os) project template and its tools | ready-made modules (Wi-Fi, web interface, scheduler, …), multi-chip builds, board tests, releases |
 
 Levels 1 and 2 need nothing but the IDE. The other examples (`11_Utils` … `15_Os`) show one part
-each; see [`examples/`](examples/README.md).
+each; see [doc/examples.md](doc/examples.md).
 
 ## Documentation
 
 [`doc/`](doc/README.md) explains what the core is and why it is built this way, then documents
-every public type, command and stored key. Coming from the five 1.0.0 libraries (XeWeOS and
-friends): [`doc/migrating-from-1.md`](doc/migrating-from-1.md).
+every public type, command and stored key. Building and testing the library itself:
+[doc/tests.md](doc/tests.md).
 
 ## License
 

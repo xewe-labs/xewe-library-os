@@ -35,6 +35,7 @@ struct State {
     std::deque<esp_err_t>             init_results;          // consumed by nvs_flash_init; empty -> ESP_OK
     bool                              full         = false;  // sets / namespace creation -> NOT_ENOUGH_SPACE
     esp_err_t                         commit_error = ESP_OK;
+    esp_err_t                         erase_error  = ESP_OK;  // returned by nvs_flash_erase when set
     int                               erase_count  = 0;
     nvs_handle_t                      next_handle  = 1;
     std::map<std::string, Ns>         data;
@@ -96,6 +97,7 @@ inline esp_err_t nvs_flash_deinit() {
 inline esp_err_t nvs_flash_erase() {
     auto& s = host_nvs::state();
     if (s.inited) return ESP_FAIL;   // IDF refuses to erase a mounted partition
+    if (s.erase_error != ESP_OK) return s.erase_error;
     s.data.clear();
     ++s.erase_count;
     return ESP_OK;

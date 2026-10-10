@@ -32,8 +32,8 @@ lines (`INPUT_QUEUE_LINES`), so several lines arriving in one pass are all kept,
 bool has_line() const;
 ```
 
-Whether at least one complete line is waiting in the queue. A plain read — it does not poll the port, so `loop()` has
-to have run.
+Whether at least one complete line is waiting in the queue. It does not poll the port: `loop()`
+must have run.
 
 ## read_line
 
@@ -50,25 +50,23 @@ string does not include the terminating newline. A partially typed line is not a
 void clear_input();
 ```
 
-Drains the hardware RX buffer and discards every queued line and any partially typed line. Every `get_*` prompt calls
-this first, so a stray keystroke typed before the question does not answer it.
+Drains the hardware RX buffer and discards every queued line, any partially typed line and the
+overflow mark. Every `get_*` prompt calls it first, so a keystroke typed before the question does
+not answer it.
 
 ## Notes
 
-* **A line holds 255 bytes** (`INPUT_BUFFER_SIZE`), 254 usable. When a 255th character arrives,
-  the line is marked as overflowed and every further byte is discarded up to the newline; then
-  the **whole line is dropped** and `! Input line too long (max 254 chars): dropped` is printed
-  once. Nothing of an over-long line is queued or executed, and the next line starts clean
-  (`clear_input()` also clears the overflow mark). Anything accepting long input — a Wi-Fi
-  password, a URL, a JSON blob — must stay within 254 characters per line.
-* **Up to four completed lines are queued** (`INPUT_QUEUE_LINES`). If a line completes while
-  four are already waiting, the **newest** line is dropped, the queued ones are kept, and
-  `! Input overflow: line dropped` is printed once per dropped line. The queue costs about 1 KB of
-  static RAM per `SerialPort`.
+* **A line holds 255 bytes** (`INPUT_BUFFER_SIZE`), 254 usable. From the 255th character on, the
+  rest of the line is discarded up to the newline. Then the **whole line is dropped** and
+  `! Input line too long (max 254 chars): dropped` is printed once. Nothing of it is queued or
+  executed. Long input (a Wi-Fi password, a URL, a JSON blob) must fit in 254 characters.
+* **Up to four completed lines are queued** (`INPUT_QUEUE_LINES`). A line that completes while
+  four are waiting is dropped; the queued ones are kept. Each dropped line prints
+  `! Input overflow: line dropped`.
 * **One burst must fit the RX buffer** (`rx_buffer_size`, 1024 bytes by default, see
-  [config](config.md)). On the ESP32's USB console (HWCDC) the driver has no flow control: bytes
-  that arrive while its RX queue is full are discarded before `loop()` sees them. On an S3, one
-  host write of 1024 junk bytes + `\n$system uid\n` (1037 bytes) lost the command at its end.
-* **There is no line editing.** A backspace is stored as a literal `\b` character; arrow keys
-  arrive as escape sequences. The echo is a raw echo, not a readline.
+  [config](config.md)). The ESP32 USB console (HWCDC) has no flow control: bytes that arrive while
+  its RX queue is full are lost before `loop()` sees them. On an S3, a command sent after 1024 other
+  bytes in one host write is lost.
+* **There is no line editing.** A backspace is stored as a literal `\b`; arrow keys arrive as
+  escape sequences. The echo is raw.
 * `read_line()` returns a copy; the queue slot is reused immediately.

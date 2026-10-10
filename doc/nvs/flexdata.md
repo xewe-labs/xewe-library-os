@@ -90,7 +90,7 @@ got integer`.
 | `float` / `double` | any number (integer or float) | `"1.5"`, `true` |
 | `std::string` | a string | `5`, `true`, objects, arrays |
 | nested struct | an object (its own fields follow these rules and report as `<Inner>.<field>`) | anything else |
-| `std::vector<T>` | an array (elements converted as before, not type-checked) | anything else |
+| `std::vector<T>` | an array (elements converted with `as<T>()`, not type-checked) | anything else |
 
 `xewe::flex_error_handler` is a `std::function<void(std::string_view)>`; `Os::begin` points it at
 the console. Unset, rejections are silent but still happen. A rejection inside a nested struct is
@@ -126,13 +126,12 @@ if (!s.has("schema")) { /* no schema key: not "version 1" */ }
 * A blob always holds every field, so a successful `from_blob` (and so `Nvs::read_flex`) marks
   **every** field present, and a failed one (wrong blob version, too short) marks none. A loader can
   therefore write `read_flex(...) && s.has("schema") && s.schema == SCHEMA` for blobs and JSON
-  alike. (Up to core `205ad11` a blob load left the mask unchanged, so `has()` after `read_flex` was
-  always `false`.)
+  alike.
 * `set_field` does not change it.
 * Nested structs (and the elements of a `std::vector` of structs) track their own presence:
   `s.inner.has("a")`.
 * **At most 32 fields:** `present()` and `has()` do not compile (`static_assert`) on a struct with
-  more; such a struct still loads JSON as before.
+  more; such a struct still loads JSON and blobs.
 * **Cost:** one `uint32_t` in every `FlexData` struct (4 bytes per instance, including each
   element of a vector of structs). It is not stored in the blob or the JSON, so stored data is
   unaffected.
@@ -164,9 +163,8 @@ bool                 from_blob   (const std::vector<uint8_t>& bytes);
 
 `to_blob`/`from_blob` are what
 [`Nvs::write_flex`/`read_flex`](nvs.md#write_flex-and-read_flex) call. `kBlobVersion` is the
-**library's** format version, not yours — shadowing it in your struct compiles but has no
-effect, because `to_blob()` looks it up in the base class scope. The wire format, the
-version byte and the migration hazard are in [blob-format.md](blob-format.md).
+library's format version, not a per-struct one. The wire format, the version byte and how to
+version your own struct are in [blob-format.md](blob-format.md).
 
 ## Codec types
 

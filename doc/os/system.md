@@ -1,9 +1,8 @@
 # System
 
-`src/XeWeCore/XeWeOs.h` — the built-in module. Always present, always first, cannot be disabled.
+`src/XeWeCore/XeWeOs.h`. The built-in module: always present, always first, cannot be disabled.
 
-`System` is a member of `Os`, reachable as `os.system`. It
-is constructed as:
+`System` is a member of `Os`, reachable as `os.system`. It is constructed as:
 
 ```cpp
 Module(os, "system", "System", "Stores integral commands and routines",
@@ -30,7 +29,7 @@ public:
     std::string status                 (const bool verbose = false)     const override;
 
     std::string get_device_name        ();
-    void        print_schema_all       ();   // `$system schema`
+    void        print_schema_all       ();   // $system schema
     void        restart                (uint16_t delay_ms = 1000);
 };
 ```
@@ -41,22 +40,34 @@ public:
 |---|---|---|
 | `$system restart` | 0 | `restart(1000)` |
 | `$system reboot` | 0 | identical alias |
-| `$system info` | 0 | chip model, cores, revision, IDF version, flash size and speed, Wi-Fi station MAC |
+| `$system info` | 0 | chip and build info, [below](#system-info) |
 | `$system set_device_name "<name>"` | 1 | stores `system/device_name` and prints `Device name set to: <name>` |
 | `$system mac` | 0 | one line per interface that reads back: `wifi_sta`, `wifi_ap`, `bt`, `eth` |
 | `$system schema` | 0 | every module's settings as JSON Lines, [below](#system-schema) |
-| `$system uid` | 0 | `base_mac <hex>` from the eFuse base MAC, and `uid64 <hex>` — the first 8 bytes of its SHA-256 |
-| `$system status` | 0 | inherited, but [overridden](#status) to print a table of every module |
-| `$system reset` | 0 | inherited, but [overridden](#reset) — a full factory reset |
+| `$system uid` | 0 | `base_mac <hex>` from the eFuse base MAC, and `uid64 <hex>`: the first 8 bytes of its SHA-256 |
+| `$system status` | 0 | inherited, [overridden](#status) to print a table of every module |
+| `$system reset` | 0 | inherited, [overridden](#reset): a full factory reset |
 
 There is **no** `$system enable` or `$system disable`, because `can_be_disabled` is `false`.
 
-`$help` and `$<group>` come from
-[XeWeCore Cli](../cli/help.md), not from this
-library.
+`$help`, `$system` and `$system help` print the command table ([help](../cli/help.md)).
 
 **`set_device_name` does not reboot and does not notify anything.** A module that cached the name
 at boot keeps the old one until the next restart.
+
+### $system info
+
+One `printf`, four lines:
+
+```text
+Model <n>  Cores <n>  Rev <n>
+IDF <esp-idf version>
+Flash <bytes> bytes @ <hz> Hz
+MAC <AA:BB:CC:DD:EE:FF>
+```
+
+`Model` is the numeric `esp_chip_model_t`. `MAC` is the Wi-Fi station MAC, formatted like
+`$system mac`.
 
 ### $system schema
 
@@ -68,20 +79,20 @@ Every module's [settings](settings.md) as JSON Lines: a header
 
 ## begin_routines_required
 
-Prints the boot header from the Os config — `<project_name>`, `Version <version>`, the
-build timestamp when set, and the url when set — then calls:
+Prints the boot header from the Os config: `<project_name>`, `Version <version>`,
+`Build Timestamp <build_timestamp>` when set, and the url when set. Then it calls:
 
 ```cpp
 esp_log_level_set("*", ESP_LOG_NONE);
 ```
 
-**This silences all ESP-IDF logging for the entire firmware**, not just this library: every
-`ESP_LOGE`/`ESP_LOGW`/`ESP_LOGI` from the IDF, from Wi-Fi, and from any other library goes quiet
-from the first boot header onward. It is deliberate — the console is a user interface here, not a
-log — but it is the first thing to undo when debugging something that should have logged.
+**This silences all ESP-IDF logging for the entire firmware**, not just this library. Every
+`ESP_LOGE`/`ESP_LOGW`/`ESP_LOGI` from the IDF, from Wi-Fi and from any other library goes quiet
+from the first boot header on. The console is a user interface here, not a log. When something
+should have logged and did not, undo this first.
 
-(It also mutes XeWeCore Nvs's default `ESP_LOGE` sink, which is harmless because
-`Os::begin` has already redirected NVS errors to the serial console.)
+It also mutes the Nvs default `ESP_LOGE` sink. That is harmless: `Os::begin` has already pointed
+Nvs errors at the serial console.
 
 ## begin_routines_init
 
@@ -96,7 +107,7 @@ Confirm "Kitchen Lights"?
 y
 ```
 
-(The `>` marker is printed on its own line, so typed input echoes on the line below it.)
+The `>` marker is printed on its own line, so typed input echoes on the line below it.
 
 The confirmed value is written to `system/device_name`. An empty name is accepted if the user
 confirms it.
@@ -111,7 +122,9 @@ Built with `XEWE_DEVICE_NAME`, there is no prompt: the build-time name is writte
 std::string status(const bool verbose = false) const override;
 ```
 
-With `verbose`, prints a table titled `System Status` with a row per registered module:
+With `verbose`, prints a table titled `System Status` with a row per registered module. The
+`Status` cell is that module's `status(false)`; for `System` itself that is `System OK`. A module
+with a settings table adds its `key: value` lines to the cell.
 
 ```
 +-----------------------------------------------+
@@ -119,7 +132,7 @@ With `verbose`, prints a table titled `System Status` with a row per registered 
 +-------------+---------+-----------------------+
 | Module Name | Enabled | Status                |
 +-------------+---------+-----------------------+
-| System      | Yes     | System module enabled |
+| System      | Yes     | System OK             |
 +-------------+---------+-----------------------+
 | Blink       | No      | Blink module disabled |
 +-------------+---------+-----------------------+
@@ -138,20 +151,19 @@ void reset(const bool verbose = false, const bool do_restart = true,
 A **factory reset**:
 
 1. When `verbose`, prints `[WARNING] / Resetting System / Will reset all modules` and asks `OK?`
-   with a bounded prompt (two attempts of 15 s, default "no"; a typo or a timeout re-prompts once);
-   a second timeout or invalid answer prints `! No answer: reset cancelled`, then `Aborted`, and
-   nothing is reset.
-2. Calls `reset(true, false, false)` on every other registered module — wiping each namespace
-   without rebooting between them.
-3. Calls `nvs.erase_all()`, which wipes the **entire NVS partition** — including `root/init_setup_flag`,
-   so the next boot re-runs the whole initial setup, and including data belonging to other
-   libraries.
+   with a bounded prompt: two attempts of 15 s, default "no"; a typo or a timeout re-prompts once.
+   A "no" prints `Aborted`. A second timeout or invalid answer prints
+   `! No answer: reset cancelled`, then `Aborted`. Nothing is reset in either case.
+2. Calls `reset(true, false, false)` on every other registered module. Each namespace is wiped,
+   with no reboot in between.
+3. Calls `nvs.erase_all()`, which wipes the **entire NVS partition**. That includes
+   `root/init_setup_flag`, so the next boot runs the whole initial setup again, and data that
+   belongs to other libraries.
 4. Calls `Module::reset(verbose, do_restart, keep_enabled)`.
 
-**The confirmation is mandatory in practice.** The internal `disable_confirmed` starts as `false`
-and is only set by the prompt, so `system.reset(false, ...)` called from code always prints
-`Aborted` and does nothing. Only `$system reset`, which passes `verbose = true`, can actually
-reset the device.
+**The confirmation is mandatory.** Without `verbose` there is no prompt and the reset counts as
+not confirmed, so `system.reset(false, ...)` from code prints `Aborted` and does nothing. Only a
+call with `verbose = true`, such as `$system reset`, can reset the device.
 
 ## get_device_name
 
@@ -161,7 +173,7 @@ std::string get_device_name();
 
 Reads `system/device_name`, returning `""` when it has never been set.
 
-**It is not `const`**, so it cannot be called from a `const` member function — including from a
+**It is not `const`**, so it cannot be called from a `const` member function, such as a
 `status() const` override. Cache the name in your module instead.
 
 ## restart

@@ -18,7 +18,10 @@ bool Nvs::erase_all() {
     m_nvs_ready               = false;
 
     const esp_err_t erase_err = nvs_flash_erase();
-    if (erase_err != ESP_OK) return false;
+    if (erase_err != ESP_OK) {
+        report_esp_error("partition erase failed", {}, erase_err);
+        return false;
+    }
     return ensure_ready();
 }
 

@@ -29,8 +29,8 @@ nvs.set_error_handler([&](std::string_view m) { serial.print(m); });
 ```
 
 **What reaches the handler:** an invalid name (longer than 15 characters, or containing an
-embedded NUL), a failed `nvs_flash_init()` (reported once until init succeeds again), the automatic
-partition erase (see Notes), a failed namespace open (except a read-only open of a namespace that
+embedded NUL; an empty name is rejected silently), a failed `nvs_flash_init()` (reported once until init succeeds again), the automatic
+partition erase (see Notes), a failed partition erase in `erase_all`, a failed namespace open (except a read-only open of a namespace that
 was never written, which is the normal "missing" case), a failed `nvs_set_*`/erase, and a failed
 commit. Read failures (missing key, wrong type) stay **silent**: `read` returns the default.
 
@@ -102,7 +102,7 @@ bool write_blob(std::string_view ns, std::string_view key, std::span<const uint8
 std::vector<uint8_t> read_blob(std::string_view ns, std::string_view key);
 ```
 
-Raw bytes. The `span` overload copies into a vector and forwards to the first.
+Raw bytes. The `vector` overload forwards to the `span` one, which writes the bytes directly.
 
 **`read_blob` cannot distinguish "missing" from "empty"** — both return an empty vector. Store a
 separate presence flag if that matters.
@@ -119,15 +119,8 @@ Persist a whole struct. `T` must derive from `xewe::FlexData<T>` — see
 `Nvs::save<T>()` and `Nvs::load<T>()`; they mean these two.)
 
 `write_flex` is `write_blob(ns, key, obj.to_blob())`. `read_flex` returns `false` when the key is
-missing **and** when the stored blob does not decode — and in the second case `out` has already
-been **partially overwritten**. See [blob-format.md](blob-format.md).
-
-```cpp
-Settings s;                                  // defaults
-if (!nvs.read_flex("app", "settings", s)) {
-    s = Settings{};                          // discard a partial decode
-}
-```
+missing and when the stored blob does not decode. In the second case `out` is already **partially
+overwritten**: reset it on `false`, as shown in [blob-format.md](blob-format.md#from_blob).
 
 ## remove, reset_ns and erase_all
 
@@ -141,7 +134,7 @@ bool erase_all();
 |---|---|
 | `remove` | deletes one key. Returns `void`; a missing key is not an error and skips the commit |
 | `reset_ns` | erases every key in a namespace. Returns `void`, so there is no success signal |
-| `erase_all` | erases the **entire NVS partition** and re-initialises. Returns `false` if either step fails |
+| `erase_all` | erases the **entire NVS partition** and re-initialises. Returns `false` if either step fails; a failed erase goes to the error handler as `Nvs: ERROR partition erase failed (<esp error>)` |
 
 `reset_ns` probes the namespace read-only first, so erasing one that was never written does not
 create it.
@@ -157,7 +150,7 @@ libraries and to the ESP-IDF itself (Wi-Fi calibration data, for example). In Xe
   **deinitialises and erases the whole NVS partition**, then initialises again. That recovers a
   full or format-changed partition automatically, at the cost of every stored value — a device
   that fills NVS loses its settings on the next boot; the erase is reported to the error handler.
-* **The 15-character limit applies to namespaces as well as keys.** An over-long name is rejected
+* **The 15-character limit applies to namespaces as well as keys.** An over-long or empty name is rejected
   before any flash access: `write` returns `false`, `read` returns the default, `read_blob`
   returns empty, and `remove`/`reset_ns` do nothing.
 * `Nvs` is default-constructible and copyable, but the readiness flag is per-instance while
