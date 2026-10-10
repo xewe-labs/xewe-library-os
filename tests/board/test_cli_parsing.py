@@ -12,9 +12,9 @@ def headers(lines):
 def test_help_lists_every_group_in_order(cli):
     """Cli::print_all_commands: one table per group with commands, sorted by id (std::map).
 
-    The group set depends on the image (testing v1: 9 modules + the template's your_module and
-    your_mod_full, plus `test` on a hooks image), so the test checks the order, the groups the
-    core tests need, and `test` exactly when the hooks are built in."""
+    The group set depends on the image (an image with every module also has the template's
+    your_module and your_mod_full, plus `test` on a hooks image), so the test checks the order, the
+    groups the core tests need, and `test` exactly when the hooks are built in."""
     out = cli.run("$help", quiet=1.0)
     groups = headers(out)
     assert groups == sorted(set(groups)), groups

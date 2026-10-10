@@ -362,10 +362,6 @@ bool Cli::tokenize(std::string_view input,
                 token.push_back(c);
             }
 
-            if (escape) {
-                token.push_back('\\');
-            }
-
             if (!closed) {
                 serial.print(
                     "Error: Unterminated quote in command.",

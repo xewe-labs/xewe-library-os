@@ -75,6 +75,11 @@ TEST(parse_gmt_offset_table) {
         {"GMT+0530", true, "GMT+05:30"}, {"GMT-14", true, "GMT-14:00"}, {"GMT+5:30", true, "GMT+05:30"},
         {"GMT+14:01", false, ""},    {"GMT+5:60", false, ""},        {"GMT+", false, ""},
         {"GMT+123456", false, ""},   {"EST", false, ""},             {"GMT*5", false, ""},
+        {"GMT+05:30", true, "GMT+05:30"}, {"gmt-8", true, "GMT-08:00"}, {"GMT+530", true, "GMT+05:30"},
+        {"GMT+5x", false, ""},       {"GMT+5:30x", false, ""},       {"GMT+0530x", false, ""},
+        {"GMT+5:30abc", false, ""},
+        {"GMT+5:30 ", false, ""},    {"GMT++5", false, ""},          {"GMT+ 5", false, ""},
+        {"GMT+5:3", false, ""},      {"GMT+:30", false, ""},         {"GMT+12345", false, ""},
     };
     for (const G& g : cases) {
         std::string out;

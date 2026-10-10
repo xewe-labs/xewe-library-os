@@ -21,13 +21,14 @@ from xewe.board.serialio import BOOT_READY, Console, wait_for_banner
 BOOT_TIMEOUT = 90.0
 QUIET = 0.6
 # A GPIO no module claims. Not 4: on the S3 the fan module claims PWM 4/6 and tach 5/7 at boot
-# (testing v1: `! GPIO 4 already claimed by fan, refused for buttons`); mlx90614 holds 8/9, led 48.
+# (a claim of 4 prints `! GPIO 4 already claimed by fan, refused for buttons`); mlx90614 holds 8/9,
+# led 48.
 TEST_PIN = int(os.environ.get("XEWE_TEST_BUTTONS_PIN", "14"))
 # The image carries the `$test` hooks (an extra `test` CLI group).
 HOOKS = "XEWE_TESTING=1" in os.environ.get("XEWE_HWTEST_DEFINES", "").split()
 
-# What the core tests drive, so what the image must contain (any extra modules are allowed: the
-# phase-2 harness had these six, the testing-v1 harness has all 9 modules plus the template's two).
+# What the core tests drive, so what the image must contain. Extra modules are allowed: an image
+# with every module and the template's two passes as well as one with only these six.
 # `$system status` row names in registration order, and the matching CLI group ids.
 REQUIRED_MODULES = ["Buttons", "Pins", "Wifi", "Time", "Scheduler", "Web Interface"]
 REQUIRED_GROUPS = ["buttons", "pins", "schedule", "system", "time", "web_interface", "wifi"]
@@ -37,8 +38,8 @@ STATUS_ROW_RX = re.compile(r"\|\s*([^|\s][^|]*?)\s*\|\s*(Yes|No)\s*\|\s*(.*?)\s*
 def status_rows(lines: list[str]) -> dict[str, tuple[str, str]]:
     """``$system status`` table: {module name: (Yes|No, first status line)}, in table order.
 
-    Since core 2.1 a module's cell spans several lines (setting rows, live lines); only the first
-    line of each module carries the name and the Yes/No, so only those lines match."""
+    A module's cell spans several lines (setting rows, live lines); only the first line of each
+    module carries the name and the Yes/No, so only those lines match."""
     return {m[1]: (m[2], m[3]) for l in lines if (m := STATUS_ROW_RX.fullmatch(l.strip()))}
 
 MEM_RX = re.compile(r"Memory Usage:\s+[\d.]+% \((\d+) / (\d+) bytes\)")

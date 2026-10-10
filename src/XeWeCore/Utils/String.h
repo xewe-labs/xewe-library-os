@@ -147,7 +147,7 @@ inline bool parse_gmt_offset(std::string_view s, std::string& normalized_gmt) {
         }
     }
 
-    if (h > 14 || m >= 60) return false;
+    if (h < 0 || h > 14 || m < 0 || m >= 60) return false;
     if (h == 14 && m > 0) return false;
 
     char buf[16];

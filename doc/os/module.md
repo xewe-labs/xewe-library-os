@@ -184,7 +184,6 @@ bool                has_cli_cmds       ()                           const;
 
 std::string_view    get_id             ()                           const;
 std::string_view    get_name           ()                           const;
-std::string_view    get_description    ()                           const;
 ```
 
 | | |

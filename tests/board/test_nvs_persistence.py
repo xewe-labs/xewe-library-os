@@ -32,7 +32,7 @@ def test_enable_state_survives_restart(cli):
     """Module enable flags (Nvs 'is_enabled') read back after restart: the same modules, each with the
     same Yes/No as before, and the modules the core tests drive all Yes.
 
-    Compared before/after rather than "all Yes": the testing-v1 image carries the template's
+    Compared before/after rather than "all Yes": an image with the template's modules carries
     YourModuleFull, which is disabled by default (`Your Module Full | No`)."""
     before = {n: e for n, (e, _) in cli.status_rows(cli.run("$system status")).items()}
     cli.restart()

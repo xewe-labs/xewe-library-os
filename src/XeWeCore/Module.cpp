@@ -237,8 +237,6 @@ std::string_view Module::get_id() const { return id; }
 
 std::string_view Module::get_name() const { return name; }
 
-std::string_view Module::get_description() const { return description; }
-
 bool Module::register_command(Command command) {
     if (!has_cli_commands) return false;
     const char* why = Cli::name_error(command.name, false);

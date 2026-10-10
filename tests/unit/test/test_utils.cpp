@@ -7,6 +7,7 @@
 #include <XeWeCore/Utils.h>
 
 #include <array>
+#include <cstdarg>
 #include <string>
 #include <vector>
 
@@ -22,6 +23,30 @@ TEST(string_format) {
     CHECK_EQ(xewe::str::format("%d-%s", 7, "x"), std::string("7-x"));
     const std::string big(300, 'a');
     CHECK_EQ(xewe::str::format("%s", big.c_str()), big);   // longer than any fixed buffer
+}
+
+namespace {
+// the formatting step of Os::report_error (XeWeOs.cpp needs the ESP-IDF headers, so Os itself is
+// tested on the board)
+std::string report_error_text(const char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    std::string message = xewe::str::vformat(fmt, ap);
+    va_end(ap);
+    return message;
+}
+} // namespace
+
+TEST(report_error_keeps_long_names) {
+    const std::string id(150, 'm');
+    const std::string cmd(60, 'c');
+    const std::string a = report_error_text("! Module id '%.*s' %s: module not registered",
+                                            int(id.size()), id.data(), "is too long");
+    CHECK_EQ(a, "! Module id '" + id + "' is too long: module not registered");
+    const std::string b = report_error_text("! $%s command '%s' %s: not registered",
+                                            id.c_str(), cmd.c_str(), "contains whitespace");
+    CHECK_EQ(b, "! $" + id + " command '" + cmd + "' contains whitespace: not registered");
+    CHECK(a.size() > 127 && b.size() > 127);
 }
 
 TEST(string_parse_int) {
@@ -62,6 +87,14 @@ TEST(string_wrap) {
     for (const auto& line : w) CHECK(line.size() <= 12);
     const auto f = xewe::str::wrap_fixed("abcdefg", 3);
     CHECK((f == std::vector<std::string>{"abc", "def", "g"}));
+}
+
+TEST(string_split_by_token) {
+    using V = std::vector<std::string>;
+    CHECK((xewe::str::split_by_token("a\\sepb\\sep", "\\sep") == V{"a", "b", ""}));
+    CHECK((xewe::str::split_by_token("a|b", "") == V{"a|b"}));     // empty separator: one element
+    CHECK((xewe::str::split_by_token("", "") == V{""}));
+    CHECK((xewe::str::split_by_token("", "|") == V{""}));
 }
 
 TEST(string_layout) {

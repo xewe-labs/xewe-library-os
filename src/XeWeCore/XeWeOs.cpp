@@ -87,10 +87,9 @@ bool Os::register_module(Module& module) {
 }
 
 void Os::report_error(const char* fmt, ...) {
-    char    message[128];
     va_list ap;
     va_start(ap, fmt);
-    vsnprintf(message, sizeof(message), fmt, ap);
+    const std::string message = str::vformat(fmt, ap);   // sized from the arguments: never cut
     va_end(ap);
     if (begun) {
         serial.print(message);

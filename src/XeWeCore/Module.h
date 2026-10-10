@@ -75,7 +75,6 @@ public:
     // getters
     std::string_view         get_id                    ()                           const;
     std::string_view         get_name                  ()                           const;
-    std::string_view         get_description           ()                           const;
 
     // settings table (doc/os/settings.md). Empty by default: no commands, no NVS reads,
     // no schema rows. Override to return {table, this}; read at begin() before every routine.

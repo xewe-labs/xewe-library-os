@@ -416,35 +416,31 @@ uint8_t SerialPort::get_menu_choice(std::string_view prompt,
                                     const uint32_t timeout_ms,
                                     const uint8_t default_value,
                                     std::optional<std::reference_wrapper<bool>> success_sink) {
-    // 1. Display the prompt if provided
     if (!prompt.empty()) {
         println_raw(prompt);
     }
 
-    // 2. Determine effective boundaries
     uint8_t actual_min = min_value;
     uint8_t actual_max = max_value;
 
-    // Auto-adjust bounds if defaults were left untouched but options were provided
+    // with options and the default bounds, number the options from 1 and cap at the last one
     if (!options.empty()) {
         if (actual_min == std::numeric_limits<uint8_t>::min()) {
-            actual_min = 1; // Default to 1-based indexing for menus
+            actual_min = 1;
         }
         if (actual_max == std::numeric_limits<uint8_t>::max()) {
-            // Prevent overflow if actual_min + options.size() exceeds uint8_t max
+            // clamp to 255: more options than fit in a uint8_t
             uint16_t calc_max = static_cast<uint16_t>(actual_min) + static_cast<uint16_t>(options.size()) - 1;
             actual_max        = (calc_max > 255) ? 255 : static_cast<uint8_t>(calc_max);
         }
     }
 
-    // 3. Display the menu options (if any)
     for (std::size_t i = 0; i < options.size(); ++i) {
         printf_raw("  %u) %s\r\n", static_cast<unsigned>(actual_min + i), options[i].c_str());
     }
 
-    // 4. Delegate to get_uint8
-    // If we only have a prompt and no options, don't double-prompt "Choice >".
-    // Just use empty string so the user sees " > " right under their custom prompt.
+    // get_uint8 prints its own prompt line, then "> " on each attempt. Its line is "Choice", or
+    // nothing when the caller's prompt is already on screen and there is no menu under it.
     std::string_view input_prompt = (options.empty() && !prompt.empty()) ? "" : "Choice";
 
     return get_uint8(input_prompt, actual_min, actual_max, retry_count, timeout_ms, default_value, success_sink);

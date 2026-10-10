@@ -150,7 +150,7 @@ begins, never loops and adds no commands. See [Module](module.md#constructor).
 void report_error(const char* fmt, ...);
 ```
 
-`printf`-style; prints the message, truncated at 127 characters. Before `begin()` (static
+`printf`-style; prints the whole message, however long. Before `begin()` (static
 constructors, Serial not up yet) the message is queued, and `begin()` prints it right after the
 banner.
 

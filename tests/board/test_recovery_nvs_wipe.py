@@ -1,4 +1,4 @@
-"""Wave 3: the one destructive test. Factory reset (`$system reset` -> ``System::reset``: every
+"""The one destructive test. Factory reset (`$system reset` -> ``System::reset``: every
 module's ``reset``, then ``Nvs::erase_all``, then restart) must bring the board back to first boot
 (``Name your device``), and ``xewe provision`` must bring it back to a fully working state.
 

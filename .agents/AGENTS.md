@@ -70,19 +70,19 @@ this file is silent.
 ### Check your work
 
 ```bash
-tests/unit/run.sh        # host tests: c++17 and gnu++2b, -fno-exceptions; expect "116 tests, 0 failed checks"
+tests/unit/run.sh        # host tests: c++17 (94 tests) and gnu++2b (118 tests), -fno-exceptions; expect "0 failed checks"
 ```
 
 - **Host tests** build the probes and `tests/unit/test/*.cpp` against the shims in
   `tests/unit/shim/` (Arduino, FreeRTOS, NVS in memory, ESP log). FlexData and Settings tests need
   ArduinoJson: `ARDUINOJSON_SRC=<path to ArduinoJson/src>`, else the shared toolchain copy.
 - **Examples** compile for esp32c3, esp32c6 and esp32s3. With plain arduino-cli:
-  `arduino-cli compile --fqbn esp32:esp32:esp32c3:CDCOnBoot=cdc examples/01_Hello`. In the xewe-labs
-  workspace: `.toolchain/compile-examples.sh <c3|c6|s3> [example-dir...]`.
+  `arduino-cli compile --fqbn esp32:esp32:esp32c3:CDCOnBoot=cdc examples/01_Hello`. With the tools:
+  `./setup.sh` once, then `./run.sh --examples --chip <c3|c6|s3>` or `--all-chips`.
 - **Lint:** `arduino-lint --compliance strict --library-manager update .` Run it from a clone
   whose folder name is a valid library name; in a working copy only LS003 (folder name) may fail.
 - **Board tests** (`tests/board`) run only through the `xewe-os-tools` pytest plugin from an xewe
-  project with a board attached, never on their own: `tests/board/README.md` has the command.
+  project with a board attached, never on their own: `doc/tests.md` has the command.
   Take the board lock (`flock <project>/.board.lock`). Never flash a board unasked.
 - **Test hooks:** `XEWE_TESTING` compiles in the `$test` group (`src/XeWeCore/Testing.{h,cpp}`)
   that the `test_hooks_*` files drive. Build it with `xewe build --chip s3 --define XEWE_TESTING=1`

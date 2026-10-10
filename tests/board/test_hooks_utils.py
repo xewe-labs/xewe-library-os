@@ -50,6 +50,19 @@ CASES = [
     ("gmt", "GMT+123456", False, ""),
     ("gmt", "EST", False, ""),
     ("gmt", "GMT*5", False, ""),
+    ("gmt", "GMT+05:30", True, "GMT+05:30"),
+    ("gmt", "gmt-8", True, "GMT-08:00"),
+    ("gmt", "GMT+530", True, "GMT+05:30"),
+    ("gmt", "GMT+5x", False, ""),
+    ("gmt", "GMT+5:30x", False, ""),
+    ("gmt", "GMT+5:30abc", False, ""),
+    ("gmt", "GMT+5:30 ", False, ""),
+    ("gmt", "GMT+ 5", False, ""),
+    ("gmt", "GMT+0530x", False, ""),
+    ("gmt", "GMT++5", False, ""),
+    ("gmt", "GMT+5:3", False, ""),
+    ("gmt", "GMT+:30", False, ""),
+    ("gmt", "GMT+12345", False, ""),
     ("day", "mo", True, "0"),
     ("day", "SU", True, "6"),
     ("day", "MON", False, ""),
@@ -64,7 +77,7 @@ CASES = [
 ]
 
 # lenient inputs: printed for the log, not asserted as right or wrong
-LENIENT = [("gmt", "GMT+5:30abc"), ("gmt", "GMT+ 5"), ("time", "12:30abc"), ("time", "-0:30"),
+LENIENT = [("time", "12:30abc"), ("time", "-0:30"),
            ("parse_float", "nan"), ("parse_float", "inf"), ("parse_float", "1e-400")]
 
 
