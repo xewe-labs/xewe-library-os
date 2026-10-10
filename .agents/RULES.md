@@ -120,7 +120,7 @@ as `X-NN`. They are not part of the WAX reference.
   or build define that is added or changed updates its page in `doc/` in the same change. `doc/`
   describes current behaviour only: no history, no changelog, no version tags.
 - **X-14 Release through the publish tool.** Versions and releases go through
-  `xewe-os-publish-library` (`publish.py check`, `publish.py bump <version>`,
+  `publish-arduino-library` (`publish.py check`, `publish.py bump <version>`,
   `publish.py release`), only when the human asks. Version strings in `library.properties`, `library.json` and `XEWE_CORE_VERSION*` move
   together.
 - **X-15 Examples teach.** `examples/02_MyModule` shows every module hook and the current
